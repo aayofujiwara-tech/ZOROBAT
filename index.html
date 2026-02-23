@@ -2,22 +2,46 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>サイコロぞろ目バトル</title>
 <style>
 /* ===== Reset & Base ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+:root {
+  --bg-deep: #0a0a1a;
+  --bg-mid: #0f1029;
+  --bg-card: #161638;
+  --cyan: #00e5ff;
+  --cyan-dim: #00e5ff44;
+  --magenta: #ff2d78;
+  --magenta-dim: #ff2d7844;
+  --gold: #ffd700;
+  --gold-dim: #ffd70044;
+  --orange: #ff6b35;
+  --green: #00ff88;
+  --red: #ff4757;
+  --text: #e8e8f0;
+  --text-dim: #8888aa;
+  --player-color: #00e5ff;
+  --cpu-color: #ff6b35;
+}
+
 body {
-  font-family: 'Hiragino Sans', 'Meiryo', 'Noto Sans JP', sans-serif;
-  background: #1a1a2e;
-  color: #eee;
+  font-family: 'Segoe UI', 'Hiragino Sans', 'Meiryo', 'Noto Sans JP', sans-serif;
+  background: var(--bg-deep);
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(0, 229, 255, 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 50%, rgba(255, 45, 120, 0.03) 0%, transparent 50%);
+  color: var(--text);
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
   user-select: none;
   overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ===== Title Screen ===== */
@@ -27,62 +51,140 @@ body {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  gap: 30px;
-  padding: 20px;
+  min-height: 100dvh;
+  gap: 32px;
+  padding: 24px;
+  width: 100%;
+  max-width: 480px;
 }
 
-#title-screen h1 {
-  font-size: clamp(1.8rem, 5vw, 2.8rem);
-  background: linear-gradient(135deg, #e94560, #f5a623);
+.title-logo {
+  text-align: center;
+}
+
+.title-logo h1 {
+  font-size: clamp(2rem, 6vw, 3rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  background: linear-gradient(135deg, var(--cyan), var(--magenta));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  text-align: center;
+  filter: drop-shadow(0 0 20px rgba(0, 229, 255, 0.3));
 }
 
-#title-screen .subtitle {
-  color: #888;
-  font-size: 0.95rem;
-  text-align: center;
+.title-logo .subtitle {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  margin-top: 12px;
+  line-height: 1.6;
 }
 
-.difficulty-select {
+.title-divider {
+  width: 60%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan-dim), var(--magenta-dim), transparent);
+}
+
+.difficulty-label {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.difficulty-cards {
   display: flex;
-  flex-direction: column;
   gap: 12px;
   width: 100%;
-  max-width: 300px;
 }
 
-.difficulty-select label {
-  font-size: 1rem;
-  text-align: center;
-  color: #ccc;
-  margin-bottom: 4px;
-}
-
-.diff-btn {
-  padding: 14px 24px;
-  font-size: 1.1rem;
-  border: 2px solid;
-  border-radius: 12px;
-  background: transparent;
+.diff-card {
+  flex: 1;
+  background: var(--bg-card);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+  padding: 20px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   cursor: pointer;
-  transition: all 0.2s;
-  font-family: inherit;
+  transition: all 0.25s;
+  position: relative;
+  overflow: hidden;
 }
 
-.diff-btn:hover { transform: scale(1.05); }
-.diff-btn:active { transform: scale(0.97); }
+.diff-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 16px 16px 0 0;
+}
 
-.diff-btn.easy { color: #4ade80; border-color: #4ade80; }
-.diff-btn.easy:hover { background: #4ade8022; }
+.diff-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255,255,255,0.12);
+}
 
-.diff-btn.normal { color: #60a5fa; border-color: #60a5fa; }
-.diff-btn.normal:hover { background: #60a5fa22; }
+.diff-card:active { transform: translateY(0) scale(0.97); }
 
-.diff-btn.hard { color: #f87171; border-color: #f87171; }
-.diff-btn.hard:hover { background: #f8717122; }
+.diff-card .diff-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.diff-card .diff-name {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.diff-card .diff-sub {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.diff-card.easy::before { background: linear-gradient(90deg, #4ade80, #22c55e); }
+.diff-card.easy .diff-name { color: #4ade80; }
+.diff-card.easy:hover { box-shadow: 0 8px 30px rgba(74, 222, 128, 0.15); border-color: #4ade8033; }
+
+.diff-card.normal::before { background: linear-gradient(90deg, var(--cyan), #3b82f6); }
+.diff-card.normal .diff-name { color: var(--cyan); }
+.diff-card.normal:hover { box-shadow: 0 8px 30px rgba(0, 229, 255, 0.15); border-color: var(--cyan-dim); }
+
+.diff-card.hard::before { background: linear-gradient(90deg, var(--magenta), #ff6b35); }
+.diff-card.hard .diff-name { color: var(--magenta); }
+.diff-card.hard:hover { box-shadow: 0 8px 30px rgba(255, 45, 120, 0.15); border-color: var(--magenta-dim); }
+
+/* ===== Countdown Overlay ===== */
+#countdown-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10, 10, 26, 0.92);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+#countdown-text {
+  font-size: clamp(4rem, 15vw, 8rem);
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--cyan), var(--magenta));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: countPulse 0.6s ease-out;
+  filter: drop-shadow(0 0 30px rgba(0, 229, 255, 0.4));
+}
+
+@keyframes countPulse {
+  0% { transform: scale(1.6); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
 
 /* ===== Game Screen ===== */
 #game-screen {
@@ -90,128 +192,124 @@ body {
   flex-direction: column;
   align-items: center;
   width: 100%;
-  max-width: 500px;
+  max-width: 480px;
   min-height: 100vh;
-  padding: 12px 16px;
-  gap: 8px;
+  min-height: 100dvh;
+  padding: 10px 16px;
+  gap: 6px;
+  justify-content: space-between;
 }
 
 /* ===== Player Areas ===== */
 .player-area {
   width: 100%;
-  border-radius: 16px;
-  padding: 16px;
+  border-radius: 18px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   position: relative;
+  backdrop-filter: blur(4px);
 }
 
 .player-area.cpu {
-  background: rgba(248, 113, 113, 0.08);
-  border: 1px solid rgba(248, 113, 113, 0.2);
+  background: linear-gradient(180deg, rgba(255, 107, 53, 0.06) 0%, rgba(255, 45, 120, 0.03) 100%);
+  border: 1px solid rgba(255, 107, 53, 0.12);
 }
 
 .player-area.player {
-  background: rgba(96, 165, 250, 0.08);
-  border: 1px solid rgba(96, 165, 250, 0.2);
+  background: linear-gradient(0deg, rgba(0, 229, 255, 0.06) 0%, rgba(59, 130, 246, 0.03) 100%);
+  border: 1px solid rgba(0, 229, 255, 0.12);
 }
 
 .player-label {
-  font-size: 0.85rem;
-  font-weight: bold;
-  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
 }
 
-.cpu .player-label { color: #f87171; }
-.player .player-label { color: #60a5fa; }
+.cpu .player-label { color: var(--cpu-color); }
+.player .player-label { color: var(--player-color); }
 
 .dice-row {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   justify-content: center;
 }
 
 /* ===== Dice ===== */
 .die {
-  width: 70px;
-  height: 70px;
-  border-radius: 14px;
+  width: 78px;
+  height: 78px;
+  border-radius: 16px;
   display: grid;
   grid-template-rows: 1fr 1fr 1fr;
   grid-template-columns: 1fr 1fr 1fr;
-  padding: 10px;
+  padding: 12px;
   gap: 2px;
   position: relative;
-  transition: transform 0.15s;
+  transition: transform 0.12s;
 }
 
+/* CPU dice: dark warm */
 .cpu .die {
-  background: linear-gradient(145deg, #4a1a1a, #3a1212);
-  border: 2px solid #f8717144;
-  box-shadow: 0 4px 12px rgba(248, 113, 113, 0.15);
+  background: linear-gradient(145deg, #3d1a0f, #2a1008);
+  border: 2px solid rgba(255, 107, 53, 0.2);
+  box-shadow:
+    0 6px 16px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.05),
+    inset 0 -2px 4px rgba(0,0,0,0.3);
 }
 
+/* Player dice: dark cool */
 .player .die {
-  background: linear-gradient(145deg, #1a2a4a, #121e3a);
-  border: 2px solid #60a5fa44;
-  box-shadow: 0 4px 12px rgba(96, 165, 250, 0.15);
+  background: linear-gradient(145deg, #1a2a3d, #0d1a2a);
+  border: 2px solid rgba(0, 229, 255, 0.15);
+  box-shadow:
+    0 6px 16px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.05),
+    inset 0 -2px 4px rgba(0,0,0,0.3);
 }
 
 .die.rolling {
-  animation: diceShake 0.08s infinite alternate;
+  animation: diceShake 0.07s infinite alternate;
 }
 
 @keyframes diceShake {
-  0% { transform: rotate(-8deg) scale(1.05); }
-  100% { transform: rotate(8deg) scale(1.05); }
-}
-
-.die.triple {
-  animation: tripleGlow 0.6s ease-in-out infinite alternate;
-}
-
-.cpu .die.triple {
-  border-color: #f87171;
-  box-shadow: 0 0 20px rgba(248, 113, 113, 0.5);
-}
-
-.player .die.triple {
-  border-color: #60a5fa;
-  box-shadow: 0 0 20px rgba(96, 165, 250, 0.5);
-}
-
-@keyframes tripleGlow {
-  0% { transform: scale(1); }
-  100% { transform: scale(1.05); }
+  0% { transform: rotate(-10deg) scale(1.06); }
+  100% { transform: rotate(10deg) scale(1.06); }
 }
 
 .die.empty {
-  opacity: 0.3;
+  opacity: 0.25;
 }
 
+/* Dots */
 .dot {
   width: 100%;
   height: 100%;
   border-radius: 50%;
   background: transparent;
+  transition: background 0.08s;
 }
 
 .dot.visible {
-  background: #eee;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
 }
 
 .cpu .dot.visible {
-  background: #fca5a5;
+  background: var(--cpu-color);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5), 0 0 6px rgba(255, 107, 53, 0.3);
 }
 
 .player .dot.visible {
-  background: #93c5fd;
+  background: var(--player-color);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5), 0 0 6px rgba(0, 229, 255, 0.3);
 }
 
-/* Dot placement grid positions */
+/* Dot grid positions */
 .dot[data-pos="1"] { grid-row: 1; grid-column: 1; }
 .dot[data-pos="2"] { grid-row: 1; grid-column: 3; }
 .dot[data-pos="3"] { grid-row: 2; grid-column: 2; }
@@ -228,15 +326,36 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 12px 0;
+  gap: 8px;
+  padding: 10px 0;
+  position: relative;
+}
+
+.center-area::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+}
+
+.center-area::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
 }
 
 .score-display {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 20px;
+  gap: 16px;
   width: 100%;
 }
 
@@ -244,129 +363,164 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
+  min-width: 64px;
 }
 
 .score-item .score-label {
-  font-size: 0.75rem;
-  color: #888;
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
 }
 
 .score-item .score-value {
-  font-size: 1.8rem;
-  font-weight: bold;
+  font-size: 2.2rem;
+  font-weight: 900;
+  line-height: 1;
 }
 
-.score-item.cpu-score .score-value { color: #f87171; }
-.score-item.player-score .score-value { color: #60a5fa; }
+.score-item.cpu-score .score-value { color: var(--cpu-color); }
+.score-item.player-score .score-value { color: var(--player-color); }
 
-.remaining-pieces {
+/* Token display */
+.token-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.token-row-label {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+}
+
+.token-row {
   display: flex;
   gap: 8px;
   align-items: center;
-  justify-content: center;
 }
 
-.piece {
-  width: 28px;
-  height: 28px;
+.token {
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  background: linear-gradient(145deg, #f5a623, #e8961c);
-  box-shadow: 0 2px 8px rgba(245, 166, 35, 0.4);
-  transition: all 0.3s;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
 }
 
-.piece.taken {
-  opacity: 0.15;
-  transform: scale(0.7);
+.token.available {
+  background: linear-gradient(145deg, var(--gold), #e6a800);
+  box-shadow: 0 2px 10px rgba(255, 215, 0, 0.35), inset 0 -2px 4px rgba(0,0,0,0.2);
 }
 
-.vs-text {
-  font-size: 1.2rem;
-  color: #666;
-  font-weight: bold;
+.token.cpu-owned {
+  background: linear-gradient(145deg, var(--cpu-color), #cc4e1f);
+  box-shadow: 0 2px 10px rgba(255, 107, 53, 0.35), inset 0 -2px 4px rgba(0,0,0,0.2);
+}
+
+.token.player-owned {
+  background: linear-gradient(145deg, var(--player-color), #00b8cc);
+  box-shadow: 0 2px 10px rgba(0, 229, 255, 0.35), inset 0 -2px 4px rgba(0,0,0,0.2);
+}
+
+.token.empty {
+  background: rgba(255,255,255,0.04);
+  border: 1px dashed rgba(255,255,255,0.1);
+  box-shadow: none;
 }
 
 /* ===== Log ===== */
 .log-area {
   width: 100%;
-  min-height: 28px;
+  min-height: 26px;
   text-align: center;
-  font-size: 0.85rem;
-  color: #aaa;
-  padding: 4px;
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  padding: 2px 4px;
 }
 
 .log-area .log-msg {
-  animation: fadeInLog 0.3s;
+  animation: fadeInLog 0.25s;
+  font-weight: 700;
 }
 
 @keyframes fadeInLog {
-  from { opacity: 0; transform: translateY(-5px); }
+  from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-.log-msg.success { color: #4ade80; }
-.log-msg.fail { color: #f87171; }
-.log-msg.info { color: #fbbf24; }
+.log-msg.success { color: var(--green); }
+.log-msg.fail { color: var(--red); }
+.log-msg.info { color: var(--gold); }
 
 /* ===== Controls ===== */
 .controls {
   display: flex;
-  gap: 16px;
+  gap: 20px;
   width: 100%;
-  max-width: 360px;
-  padding: 8px 0;
+  max-width: 380px;
+  padding: 10px 0 16px;
 }
 
 .game-btn {
   flex: 1;
-  padding: 16px 12px;
-  font-size: 1.2rem;
-  font-weight: bold;
+  padding: 18px 12px;
+  font-size: 1.25rem;
+  font-weight: 900;
   border: none;
-  border-radius: 14px;
+  border-radius: 16px;
   cursor: pointer;
   font-family: inherit;
-  transition: all 0.15s;
+  transition: all 0.12s;
   position: relative;
   overflow: hidden;
+  min-height: 60px;
+  letter-spacing: 0.03em;
 }
 
-.game-btn:active { transform: scale(0.95); }
+.game-btn:active:not(:disabled) { transform: scale(0.93); }
 
 .game-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: not-allowed;
-  transform: none;
+  transform: none !important;
 }
 
 #btn-roll {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  background: linear-gradient(135deg, #0077cc, #005fa3);
   color: white;
-  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 4px 20px rgba(0, 119, 204, 0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+  border: 1px solid rgba(0, 229, 255, 0.2);
 }
 
 #btn-roll:hover:not(:disabled) {
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+  box-shadow: 0 6px 28px rgba(0, 229, 255, 0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+  background: linear-gradient(135deg, #0088dd, #006ab5);
 }
 
 #btn-claim {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
+  background: linear-gradient(135deg, #cc8800, #a36d00);
   color: white;
-  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+  box-shadow: 0 4px 20px rgba(255, 215, 0, 0.25), inset 0 1px 0 rgba(255,255,255,0.15);
+  border: 1px solid rgba(255, 215, 0, 0.2);
 }
 
 #btn-claim:hover:not(:disabled) {
-  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.6);
+  box-shadow: 0 6px 28px rgba(255, 215, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+  background: linear-gradient(135deg, #dd9900, #b37e00);
 }
 
 .key-hint {
   display: block;
-  font-size: 0.65rem;
-  font-weight: normal;
-  opacity: 0.7;
-  margin-top: 2px;
+  font-size: 0.6rem;
+  font-weight: 600;
+  opacity: 0.5;
+  margin-top: 3px;
+  letter-spacing: 0.05em;
 }
 
 /* ===== Result Overlay ===== */
@@ -374,13 +528,13 @@ body {
   display: none;
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(10, 10, 26, 0.93);
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 24px;
+  gap: 20px;
   z-index: 100;
-  animation: fadeIn 0.5s;
+  animation: fadeIn 0.6s;
 }
 
 @keyframes fadeIn {
@@ -389,44 +543,75 @@ body {
 }
 
 #result-overlay .result-text {
-  font-size: clamp(2rem, 8vw, 3.5rem);
-  font-weight: bold;
+  font-size: clamp(2.5rem, 10vw, 4.5rem);
+  font-weight: 900;
+  letter-spacing: 0.05em;
 }
 
 #result-overlay .result-text.win {
-  background: linear-gradient(135deg, #4ade80, #22c55e);
+  background: linear-gradient(135deg, var(--cyan), var(--green));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  filter: drop-shadow(0 0 30px rgba(0, 255, 136, 0.4));
+  animation: winPulse 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes winPulse {
+  0% { filter: drop-shadow(0 0 20px rgba(0, 255, 136, 0.3)); }
+  100% { filter: drop-shadow(0 0 40px rgba(0, 255, 136, 0.6)); }
 }
 
 #result-overlay .result-text.lose {
-  background: linear-gradient(135deg, #f87171, #ef4444);
+  background: linear-gradient(135deg, var(--magenta), var(--orange));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  filter: drop-shadow(0 0 20px rgba(255, 45, 120, 0.3));
 }
 
 #result-overlay .result-sub {
-  color: #aaa;
+  color: var(--text-dim);
   font-size: 1rem;
 }
 
-#btn-retry {
-  padding: 14px 40px;
-  font-size: 1.1rem;
-  border: 2px solid #eee;
+.result-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.result-btn {
+  padding: 14px 36px;
+  font-size: 1rem;
+  font-weight: 800;
   border-radius: 12px;
-  background: transparent;
-  color: #eee;
   cursor: pointer;
   font-family: inherit;
   transition: all 0.2s;
+  letter-spacing: 0.03em;
+}
+
+#btn-retry {
+  background: transparent;
+  border: 2px solid var(--cyan);
+  color: var(--cyan);
 }
 
 #btn-retry:hover {
-  background: #eee;
-  color: #1a1a2e;
+  background: var(--cyan);
+  color: var(--bg-deep);
+}
+
+#btn-back-title {
+  background: transparent;
+  border: 2px solid var(--text-dim);
+  color: var(--text-dim);
+}
+
+#btn-back-title:hover {
+  background: var(--text-dim);
+  color: var(--bg-deep);
 }
 
 /* ===== Effects ===== */
@@ -435,55 +620,82 @@ body {
   top: 0; left: 0; right: 0; bottom: 0;
   pointer-events: none;
   z-index: 50;
-  animation: flash 0.4s ease-out forwards;
+  animation: flash 0.5s ease-out forwards;
 }
 
-.claim-flash.success { background: rgba(74, 222, 128, 0.2); }
-.claim-flash.fail { background: rgba(248, 113, 113, 0.2); }
+.claim-flash.success { background: radial-gradient(circle at 50% 70%, rgba(0, 255, 136, 0.25), transparent 60%); }
+.claim-flash.fail { background: radial-gradient(circle at 50% 70%, rgba(255, 71, 87, 0.25), transparent 60%); }
+.claim-flash.cpu-claim { background: radial-gradient(circle at 50% 30%, rgba(255, 107, 53, 0.25), transparent 60%); }
 
 @keyframes flash {
   0% { opacity: 1; }
   100% { opacity: 0; }
 }
 
-/* floating +1 / -1 */
 .float-text {
   position: fixed;
   font-size: 2rem;
-  font-weight: bold;
+  font-weight: 900;
   pointer-events: none;
   z-index: 60;
   animation: floatUp 1s ease-out forwards;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.5);
 }
 
-.float-text.plus { color: #4ade80; }
-.float-text.minus { color: #f87171; }
+.float-text.plus { color: var(--green); }
+.float-text.minus { color: var(--red); }
 
 @keyframes floatUp {
   0% { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-60px) scale(1.3); }
+  100% { opacity: 0; transform: translateY(-50px) scale(1.2); }
+}
+
+/* CPU claim glow on dice area */
+.player-area.cpu.claiming {
+  animation: cpuClaimGlow 0.5s ease-out;
+}
+
+@keyframes cpuClaimGlow {
+  0% { box-shadow: 0 0 30px rgba(255, 107, 53, 0.4); }
+  100% { box-shadow: none; }
 }
 
 /* ===== Responsive ===== */
-@media (max-width: 400px) {
+@media (max-width: 380px) {
   .die {
-    width: 58px;
-    height: 58px;
-    padding: 8px;
-    border-radius: 11px;
+    width: 64px;
+    height: 64px;
+    padding: 10px;
+    border-radius: 13px;
   }
+  .dice-row { gap: 10px; }
   .game-btn {
-    padding: 14px 8px;
-    font-size: 1.05rem;
+    padding: 16px 8px;
+    font-size: 1.1rem;
+    min-height: 54px;
+  }
+  .diff-card { padding: 16px 6px; }
+  .difficulty-cards { gap: 8px; }
+}
+
+@media (min-width: 500px) {
+  .die {
+    width: 88px;
+    height: 88px;
+    padding: 14px;
+    border-radius: 18px;
+  }
+  .dice-row { gap: 18px; }
+  .game-btn {
+    padding: 20px 16px;
+    font-size: 1.35rem;
+    min-height: 66px;
   }
 }
 
-@media (min-width: 600px) {
-  .die {
-    width: 80px;
-    height: 80px;
-    padding: 12px;
-  }
+@media (min-height: 750px) {
+  #game-screen { gap: 10px; }
+  .player-area { padding: 18px 16px; gap: 14px; }
 }
 </style>
 </head>
@@ -491,21 +703,41 @@ body {
 
 <!-- ===== Title Screen ===== -->
 <div id="title-screen">
-  <h1>サイコロぞろ目バトル</h1>
-  <p class="subtitle">3つのサイコロでぞろ目を狙え！<br>先に駒を2つ取った方の勝ち</p>
-  <div class="difficulty-select">
-    <label>CPUの強さを選択</label>
-    <button class="diff-btn easy" onclick="startGame('easy')">かんたん（Easy）</button>
-    <button class="diff-btn normal" onclick="startGame('normal')">ふつう（Normal）</button>
-    <button class="diff-btn hard" onclick="startGame('hard')">つよい（Hard）</button>
+  <div class="title-logo">
+    <h1>サイコロぞろ目バトル</h1>
+    <p class="subtitle">3つのサイコロでぞろ目を狙え！<br>先に駒を2つ取った方の勝ち</p>
   </div>
+  <div class="title-divider"></div>
+  <span class="difficulty-label">CPUの強さを選択</span>
+  <div class="difficulty-cards">
+    <div class="diff-card easy" onclick="initGame('easy')">
+      <span class="diff-icon">&#x1F331;</span>
+      <span class="diff-name">Easy</span>
+      <span class="diff-sub">かんたん</span>
+    </div>
+    <div class="diff-card normal" onclick="initGame('normal')">
+      <span class="diff-icon">&#x2694;&#xFE0F;</span>
+      <span class="diff-name">Normal</span>
+      <span class="diff-sub">ふつう</span>
+    </div>
+    <div class="diff-card hard" onclick="initGame('hard')">
+      <span class="diff-icon">&#x1F525;</span>
+      <span class="diff-name">Hard</span>
+      <span class="diff-sub">つよい</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Countdown Overlay ===== -->
+<div id="countdown-overlay">
+  <div id="countdown-text"></div>
 </div>
 
 <!-- ===== Game Screen ===== -->
 <div id="game-screen">
 
   <!-- CPU Area -->
-  <div class="player-area cpu">
+  <div class="player-area cpu" id="cpu-area">
     <span class="player-label">CPU</span>
     <div class="dice-row" id="cpu-dice">
       <div class="die empty" id="cpu-die-0"></div>
@@ -524,10 +756,9 @@ body {
         <span class="score-label">CPU</span>
         <span class="score-value" id="cpu-score">0</span>
       </div>
-      <div class="remaining-pieces" id="remaining-pieces">
-        <div class="piece" id="piece-0"></div>
-        <div class="piece" id="piece-1"></div>
-        <div class="piece" id="piece-2"></div>
+      <div class="token-area">
+        <span class="token-row-label">駒</span>
+        <div class="token-row" id="token-row"></div>
       </div>
       <div class="score-item player-score">
         <span class="score-label">あなた</span>
@@ -563,7 +794,10 @@ body {
 <div id="result-overlay">
   <div class="result-text" id="result-text"></div>
   <div class="result-sub" id="result-sub"></div>
-  <button id="btn-retry" onclick="backToTitle()">タイトルに戻る</button>
+  <div class="result-buttons">
+    <button class="result-btn" id="btn-retry">もう一度</button>
+    <button class="result-btn" id="btn-back-title">タイトルへ</button>
+  </div>
 </div>
 
 <script>
@@ -607,12 +841,13 @@ const CPU_PARAMS = {
 // ===== Game State =====
 let gameActive = false;
 let difficulty = 'normal';
+let lastDifficulty = 'normal';
 
-let playerDice = [0, 0, 0];   // 0 = not rolled yet
+let playerDice = [0, 0, 0];
 let cpuDice = [0, 0, 0];
 let playerScore = 0;
 let cpuScore = 0;
-let piecesRemaining = 3;      // shared pool
+let piecesRemaining = 3;
 let playerHasRolled = false;
 let playerIsRolling = false;
 
@@ -621,6 +856,7 @@ let cpuHasRolled = false;
 let cpuIsRolling = false;
 
 const WIN_SCORE = 2;
+const TOTAL_PIECES = 3;
 
 // ===== DOM References =====
 const $titleScreen = document.getElementById('title-screen');
@@ -629,12 +865,18 @@ const $resultOverlay = document.getElementById('result-overlay');
 const $resultText = document.getElementById('result-text');
 const $resultSub = document.getElementById('result-sub');
 const $logArea = document.getElementById('log-area');
+const $countdownOverlay = document.getElementById('countdown-overlay');
+const $countdownText = document.getElementById('countdown-text');
+const $cpuArea = document.getElementById('cpu-area');
 
 const $btnRoll = document.getElementById('btn-roll');
 const $btnClaim = document.getElementById('btn-claim');
+const $btnRetry = document.getElementById('btn-retry');
+const $btnBackTitle = document.getElementById('btn-back-title');
 
 const $playerScore = document.getElementById('player-score');
 const $cpuScore = document.getElementById('cpu-score');
+const $tokenRow = document.getElementById('token-row');
 
 // ===== Utility =====
 function rand(min, max) {
@@ -649,55 +891,64 @@ function isTriple(dice) {
   return dice[0] > 0 && dice[0] === dice[1] && dice[1] === dice[2];
 }
 
-// ===== Rendering =====
-function renderDie(elementId, value, isTripleState) {
+// ===== Token Rendering =====
+function renderTokens() {
+  let html = '';
+  // CPU owned tokens
+  for (let i = 0; i < cpuScore; i++) {
+    html += '<div class="token cpu-owned"></div>';
+  }
+  // Available tokens
+  for (let i = 0; i < piecesRemaining; i++) {
+    html += '<div class="token available"></div>';
+  }
+  // Player owned tokens
+  for (let i = 0; i < playerScore; i++) {
+    html += '<div class="token player-owned"></div>';
+  }
+  // Empty slots for returned tokens
+  const total = cpuScore + piecesRemaining + playerScore;
+  for (let i = total; i < TOTAL_PIECES; i++) {
+    html += '<div class="token empty"></div>';
+  }
+  $tokenRow.innerHTML = html;
+}
+
+// ===== Dice Rendering =====
+function renderDie(elementId, value) {
   const el = document.getElementById(elementId);
   if (!el) return;
 
-  el.classList.remove('empty', 'triple');
+  el.classList.remove('empty');
   if (value === 0) {
     el.classList.add('empty');
-  }
-  if (isTripleState) {
-    el.classList.add('triple');
   }
 
   const pattern = value > 0 ? DOT_PATTERNS[value] : [];
   let html = '';
   for (let i = 1; i <= 9; i++) {
     const vis = pattern.includes(i) ? 'visible' : '';
-    html += `<div class="dot ${vis}" data-pos="${i}"></div>`;
+    html += '<div class="dot ' + vis + '" data-pos="' + i + '"></div>';
   }
   el.innerHTML = html;
 }
 
 function renderAllDice() {
-  const pTriple = isTriple(playerDice);
-  const cTriple = isTriple(cpuDice);
   for (let i = 0; i < 3; i++) {
-    renderDie(`player-die-${i}`, playerDice[i], pTriple);
-    renderDie(`cpu-die-${i}`, cpuDice[i], cTriple);
+    renderDie('player-die-' + i, playerDice[i]);
+    renderDie('cpu-die-' + i, cpuDice[i]);
   }
 }
 
 function renderScores() {
   $playerScore.textContent = playerScore;
   $cpuScore.textContent = cpuScore;
-
-  const totalTaken = playerScore + cpuScore;
-  for (let i = 0; i < 3; i++) {
-    const pieceEl = document.getElementById(`piece-${i}`);
-    if (i < totalTaken) {
-      pieceEl.classList.add('taken');
-    } else {
-      pieceEl.classList.remove('taken');
-    }
-  }
-  piecesRemaining = 3 - totalTaken;
+  piecesRemaining = TOTAL_PIECES - playerScore - cpuScore;
+  renderTokens();
 }
 
 function setLog(msg, cls) {
-  $logArea.innerHTML = `<span class="log-msg ${cls || ''}">${msg}</span>`;
+  $logArea.innerHTML = '<span class="log-msg ' + (cls || '') + '">' + msg + '</span>';
 }
 
 function clearLog() {
@@ -707,46 +958,46 @@ function clearLog() {
 // ===== Effects =====
 function showFlash(type) {
   const flash = document.createElement('div');
-  flash.className = `claim-flash ${type}`;
+  flash.className = 'claim-flash ' + type;
   document.body.appendChild(flash);
-  setTimeout(() => flash.remove(), 500);
+  setTimeout(function() { flash.remove(); }, 600);
 }
 
 function showFloatText(text, cls, x, y) {
   const el = document.createElement('div');
-  el.className = `float-text ${cls}`;
+  el.className = 'float-text ' + cls;
   el.textContent = text;
   el.style.left = x + 'px';
   el.style.top = y + 'px';
   document.body.appendChild(el);
-  setTimeout(() => el.remove(), 1000);
+  setTimeout(function() { el.remove(); }, 1000);
 }
 
 // ===== Rolling Animation =====
 function startRollingAnimation(prefix, duration, callback) {
   const dieEls = [
-    document.getElementById(`${prefix}-die-0`),
-    document.getElementById(`${prefix}-die-1`),
-    document.getElementById(`${prefix}-die-2`),
+    document.getElementById(prefix + '-die-0'),
+    document.getElementById(prefix + '-die-1'),
+    document.getElementById(prefix + '-die-2'),
   ];
 
-  dieEls.forEach(el => el.classList.add('rolling'));
+  dieEls.forEach(function(el) { el.classList.add('rolling'); });
 
-  const interval = setInterval(() => {
-    for (let i = 0; i < 3; i++) {
-      const rv = randInt(1, 6);
-      const pattern = DOT_PATTERNS[rv];
-      let html = '';
-      for (let p = 1; p <= 9; p++) {
-        html += `<div class="dot ${pattern.includes(p) ? 'visible' : ''}" data-pos="${p}"></div>`;
+  var interval = setInterval(function() {
+    for (var i = 0; i < 3; i++) {
+      var rv = randInt(1, 6);
+      var pattern = DOT_PATTERNS[rv];
+      var html = '';
+      for (var p = 1; p <= 9; p++) {
+        html += '<div class="dot ' + (pattern.includes(p) ? 'visible' : '') + '" data-pos="' + p + '"></div>';
       }
       dieEls[i].innerHTML = html;
     }
   }, 50);
 
-  setTimeout(() => {
+  setTimeout(function() {
     clearInterval(interval);
-    dieEls.forEach(el => el.classList.remove('rolling'));
+    dieEls.forEach(function(el) { el.classList.remove('rolling'); });
     callback();
   }, duration);
 }
@@ -760,19 +1011,14 @@ function playerRoll() {
   $btnRoll.disabled = true;
   $btnClaim.disabled = true;
 
-  startRollingAnimation('player', 300, () => {
+  startRollingAnimation('player', 250, function() {
     playerDice = [randInt(1, 6), randInt(1, 6), randInt(1, 6)];
     playerHasRolled = true;
     playerIsRolling = false;
     renderAllDice();
     $btnRoll.disabled = false;
     $btnClaim.disabled = false;
-
-    if (isTriple(playerDice)) {
-      setLog(`ぞろ目！ [${playerDice[0]}-${playerDice[1]}-${playerDice[2]}]`, 'info');
-    } else {
-      clearLog();
-    }
+    clearLog();
   });
 }
 
@@ -780,12 +1026,11 @@ function playerClaim() {
   if (!gameActive || !playerHasRolled || playerIsRolling) return;
 
   if (isTriple(playerDice)) {
-    // Successful claim
     if (piecesRemaining > 0) {
       playerScore++;
       renderScores();
       showFlash('success');
-      const rect = $btnClaim.getBoundingClientRect();
+      var rect = $btnClaim.getBoundingClientRect();
       showFloatText('+1', 'plus', rect.left + rect.width / 2 - 15, rect.top - 30);
       setLog('駒を獲得！', 'success');
       playerHasRolled = false;
@@ -796,9 +1041,8 @@ function playerClaim() {
       setLog('駒がもうありません', 'info');
     }
   } else {
-    // False claim - penalty
     showFlash('fail');
-    const rect = $btnClaim.getBoundingClientRect();
+    var rect = $btnClaim.getBoundingClientRect();
     if (playerScore > 0) {
       playerScore--;
       renderScores();
@@ -815,12 +1059,11 @@ function playerClaim() {
 function cpuLoop() {
   if (!gameActive) return;
 
-  const params = CPU_PARAMS[difficulty];
-  const rollDelay = rand(params.rollIntervalMin, params.rollIntervalMax);
+  var params = CPU_PARAMS[difficulty];
+  var rollDelay = rand(params.rollIntervalMin, params.rollIntervalMax);
 
-  cpuTimers.roll = setTimeout(() => {
+  cpuTimers.roll = setTimeout(function() {
     if (!gameActive) return;
-
     cpuRoll();
   }, rollDelay);
 }
@@ -831,7 +1074,7 @@ function cpuRoll() {
   cpuIsRolling = true;
   cpuHasRolled = false;
 
-  startRollingAnimation('cpu', 300, () => {
+  startRollingAnimation('cpu', 250, function() {
     if (!gameActive) return;
 
     cpuDice = [randInt(1, 6), randInt(1, 6), randInt(1, 6)];
@@ -839,25 +1082,22 @@ function cpuRoll() {
     cpuIsRolling = false;
     renderAllDice();
 
-    const params = CPU_PARAMS[difficulty];
-    const gotTriple = isTriple(cpuDice);
+    var params = CPU_PARAMS[difficulty];
+    var gotTriple = isTriple(cpuDice);
 
     if (gotTriple) {
-      // CPU notices the triple after reaction delay
-      const reactionDelay = rand(params.reactionMin, params.reactionMax);
-      cpuTimers.claim = setTimeout(() => {
+      var reactionDelay = rand(params.reactionMin, params.reactionMax);
+      cpuTimers.claim = setTimeout(function() {
         if (!gameActive || !cpuHasRolled) return;
         cpuClaim(true);
       }, reactionDelay);
     } else if (Math.random() < params.falseClaimRate) {
-      // CPU makes a false claim sometimes
-      const falseDelay = rand(params.reactionMin, params.reactionMax) * 1.5;
-      cpuTimers.claim = setTimeout(() => {
+      var falseDelay = rand(params.reactionMin, params.reactionMax) * 1.5;
+      cpuTimers.claim = setTimeout(function() {
         if (!gameActive || !cpuHasRolled) return;
         cpuClaim(false);
       }, falseDelay);
     } else {
-      // No triple, no false claim - roll again
       cpuLoop();
     }
   });
@@ -866,11 +1106,16 @@ function cpuRoll() {
 function cpuClaim(correct) {
   if (!gameActive) return;
 
+  // CPU claim visual flash
+  $cpuArea.classList.remove('claiming');
+  void $cpuArea.offsetWidth;
+  $cpuArea.classList.add('claiming');
+
   if (correct) {
     if (piecesRemaining > 0) {
       cpuScore++;
       renderScores();
-      showFlash('fail');
+      showFlash('cpu-claim');
       setLog('CPUが駒を獲得！', 'fail');
       cpuHasRolled = false;
       cpuDice = [0, 0, 0];
@@ -882,7 +1127,6 @@ function cpuClaim(correct) {
       cpuLoop();
     }
   } else {
-    // CPU false claim
     if (cpuScore > 0) {
       cpuScore--;
       renderScores();
@@ -916,7 +1160,7 @@ function endGame(winner) {
   $btnRoll.disabled = true;
   $btnClaim.disabled = true;
 
-  setTimeout(() => {
+  setTimeout(function() {
     $resultOverlay.style.display = 'flex';
     if (winner === 'player') {
       $resultText.textContent = 'YOU WIN!';
@@ -927,19 +1171,43 @@ function endGame(winner) {
       $resultText.className = 'result-text lose';
       $resultSub.textContent = 'CPUの勝利です';
     }
-  }, 500);
+  }, 600);
+}
+
+// ===== Countdown =====
+function showCountdown(callback) {
+  $countdownOverlay.style.display = 'flex';
+  var steps = ['3', '2', '1', 'GO!'];
+  var i = 0;
+
+  function nextStep() {
+    if (i >= steps.length) {
+      $countdownOverlay.style.display = 'none';
+      callback();
+      return;
+    }
+    $countdownText.textContent = steps[i];
+    $countdownText.style.animation = 'none';
+    void $countdownText.offsetWidth;
+    $countdownText.style.animation = 'countPulse 0.6s ease-out';
+    i++;
+    setTimeout(nextStep, i <= 3 ? 700 : 500);
+  }
+
+  nextStep();
 }
 
 // ===== Game Start / Reset =====
-function startGame(diff) {
+function initGame(diff) {
   difficulty = diff;
+  lastDifficulty = diff;
 
   // Reset state
   playerDice = [0, 0, 0];
   cpuDice = [0, 0, 0];
   playerScore = 0;
   cpuScore = 0;
-  piecesRemaining = 3;
+  piecesRemaining = TOTAL_PIECES;
   playerHasRolled = false;
   playerIsRolling = false;
   cpuHasRolled = false;
@@ -953,13 +1221,45 @@ function startGame(diff) {
   $gameScreen.style.display = 'flex';
   $resultOverlay.style.display = 'none';
 
-  $btnRoll.disabled = false;
-  $btnClaim.disabled = false;
+  $btnRoll.disabled = true;
+  $btnClaim.disabled = true;
 
-  gameActive = true;
+  showCountdown(function() {
+    gameActive = true;
+    $btnRoll.disabled = false;
+    $btnClaim.disabled = false;
+    cpuLoop();
+  });
+}
 
-  // Start CPU
-  cpuLoop();
+function retryGame() {
+  $resultOverlay.style.display = 'none';
+  clearTimeout(cpuTimers.roll);
+  clearTimeout(cpuTimers.claim);
+
+  playerDice = [0, 0, 0];
+  cpuDice = [0, 0, 0];
+  playerScore = 0;
+  cpuScore = 0;
+  piecesRemaining = TOTAL_PIECES;
+  playerHasRolled = false;
+  playerIsRolling = false;
+  cpuHasRolled = false;
+  cpuIsRolling = false;
+
+  renderAllDice();
+  renderScores();
+  clearLog();
+
+  $btnRoll.disabled = true;
+  $btnClaim.disabled = true;
+
+  showCountdown(function() {
+    gameActive = true;
+    $btnRoll.disabled = false;
+    $btnClaim.disabled = false;
+    cpuLoop();
+  });
 }
 
 function backToTitle() {
@@ -975,9 +1275,21 @@ function backToTitle() {
 // ===== Controls =====
 $btnRoll.addEventListener('click', playerRoll);
 $btnClaim.addEventListener('click', playerClaim);
+$btnRetry.addEventListener('click', retryGame);
+$btnBackTitle.addEventListener('click', backToTitle);
 
-document.addEventListener('keydown', (e) => {
+document.addEventListener('keydown', function(e) {
+  // Allow Enter on result screen for retry
+  if ($resultOverlay.style.display === 'flex') {
+    if (e.code === 'Enter') {
+      e.preventDefault();
+      retryGame();
+    }
+    return;
+  }
+
   if (!gameActive) return;
+
   if (e.code === 'Space') {
     e.preventDefault();
     playerRoll();
@@ -989,14 +1301,17 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Prevent double-tap zoom on mobile
-let lastTap = 0;
-document.addEventListener('touchend', (e) => {
-  const now = Date.now();
+var lastTap = 0;
+document.addEventListener('touchend', function(e) {
+  var now = Date.now();
   if (now - lastTap < 300) {
     e.preventDefault();
   }
   lastTap = now;
 }, { passive: false });
+
+// Initial token render
+renderTokens();
 </script>
 
 </body>
