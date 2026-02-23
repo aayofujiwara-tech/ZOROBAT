@@ -86,11 +86,64 @@ body {
   background: linear-gradient(90deg, transparent, var(--cyan-dim), var(--magenta-dim), transparent);
 }
 
-.difficulty-label {
+.section-label {
   font-size: 0.8rem;
   color: var(--text-dim);
   letter-spacing: 0.15em;
   text-transform: uppercase;
+}
+
+/* Dice count selector */
+.dice-count-cards {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.dice-count-card {
+  flex: 1;
+  background: var(--bg-card);
+  border: 2px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.25s;
+}
+
+.dice-count-card:hover {
+  border-color: rgba(255,255,255,0.15);
+}
+
+.dice-count-card:active { transform: scale(0.97); }
+
+.dice-count-card .dc-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+  letter-spacing: 2px;
+}
+
+.dice-count-card .dc-name {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.dice-count-card .dc-sub {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+
+.dice-count-card.selected {
+  border-color: var(--cyan);
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.15), inset 0 0 20px rgba(0, 229, 255, 0.03);
+}
+
+.dice-count-card.selected .dc-name {
+  color: var(--cyan);
 }
 
 .difficulty-cards {
@@ -705,10 +758,23 @@ body {
 <div id="title-screen">
   <div class="title-logo">
     <h1>サイコロぞろ目バトル</h1>
-    <p class="subtitle">3つのサイコロでぞろ目を狙え！<br>先に駒を2つ取った方の勝ち</p>
+    <p class="subtitle" id="title-subtitle">3つのサイコロでぞろ目を狙え！<br>先に駒を2つ取った方の勝ち</p>
   </div>
   <div class="title-divider"></div>
-  <span class="difficulty-label">CPUの強さを選択</span>
+  <span class="section-label">サイコロの個数</span>
+  <div class="dice-count-cards">
+    <div class="dice-count-card" id="dc-2" onclick="selectDiceCount(2)">
+      <span class="dc-icon">&#x1F3B2;&#x1F3B2;</span>
+      <span class="dc-name">2個</span>
+      <span class="dc-sub">カジュアル</span>
+    </div>
+    <div class="dice-count-card selected" id="dc-3" onclick="selectDiceCount(3)">
+      <span class="dc-icon">&#x1F3B2;&#x1F3B2;&#x1F3B2;</span>
+      <span class="dc-name">3個</span>
+      <span class="dc-sub">スタンダード</span>
+    </div>
+  </div>
+  <span class="section-label">CPUの強さ</span>
   <div class="difficulty-cards">
     <div class="diff-card easy" onclick="initGame('easy')">
       <span class="diff-icon">&#x1F331;</span>
@@ -739,11 +805,7 @@ body {
   <!-- CPU Area -->
   <div class="player-area cpu" id="cpu-area">
     <span class="player-label">CPU</span>
-    <div class="dice-row" id="cpu-dice">
-      <div class="die empty" id="cpu-die-0"></div>
-      <div class="die empty" id="cpu-die-1"></div>
-      <div class="die empty" id="cpu-die-2"></div>
-    </div>
+    <div class="dice-row" id="cpu-dice"></div>
   </div>
 
   <!-- Log -->
@@ -770,11 +832,7 @@ body {
   <!-- Player Area -->
   <div class="player-area player">
     <span class="player-label">あなた</span>
-    <div class="dice-row" id="player-dice">
-      <div class="die empty" id="player-die-0"></div>
-      <div class="die empty" id="player-die-1"></div>
-      <div class="die empty" id="player-die-2"></div>
-    </div>
+    <div class="dice-row" id="player-dice"></div>
   </div>
 
   <!-- Controls -->
@@ -842,6 +900,7 @@ const CPU_PARAMS = {
 let gameActive = false;
 let difficulty = 'normal';
 let lastDifficulty = 'normal';
+let diceCount = 3;
 
 let playerDice = [0, 0, 0];
 let cpuDice = [0, 0, 0];
@@ -887,8 +946,51 @@ function randInt(min, max) {
   return Math.floor(rand(min, max + 1));
 }
 
-function isTriple(dice) {
-  return dice[0] > 0 && dice[0] === dice[1] && dice[1] === dice[2];
+function isAllSame(dice) {
+  if (dice[0] <= 0) return false;
+  for (var i = 1; i < dice.length; i++) {
+    if (dice[i] !== dice[0]) return false;
+  }
+  return true;
+}
+
+// Dice count selection on title screen
+function selectDiceCount(count) {
+  diceCount = count;
+  document.getElementById('dc-2').classList.toggle('selected', count === 2);
+  document.getElementById('dc-3').classList.toggle('selected', count === 3);
+  document.getElementById('title-subtitle').innerHTML =
+    count + 'つのサイコロでぞろ目を狙え！<br>先に駒を2つ取った方の勝ち';
+}
+
+// Build dice DOM elements for given count
+function buildDiceDOM() {
+  var cpuRow = document.getElementById('cpu-dice');
+  var playerRow = document.getElementById('player-dice');
+  cpuRow.innerHTML = '';
+  playerRow.innerHTML = '';
+  for (var i = 0; i < diceCount; i++) {
+    var cd = document.createElement('div');
+    cd.className = 'die empty';
+    cd.id = 'cpu-die-' + i;
+    cpuRow.appendChild(cd);
+    var pd = document.createElement('div');
+    pd.className = 'die empty';
+    pd.id = 'player-die-' + i;
+    playerRow.appendChild(pd);
+  }
+}
+
+function makeEmptyDice() {
+  var arr = [];
+  for (var i = 0; i < diceCount; i++) arr.push(0);
+  return arr;
+}
+
+function rollNewDice() {
+  var arr = [];
+  for (var i = 0; i < diceCount; i++) arr.push(randInt(1, 6));
+  return arr;
 }
 
 // ===== Token Rendering =====
@@ -934,7 +1036,7 @@ function renderDie(elementId, value) {
 }
 
 function renderAllDice() {
-  for (let i = 0; i < 3; i++) {
+  for (var i = 0; i < diceCount; i++) {
     renderDie('player-die-' + i, playerDice[i]);
     renderDie('cpu-die-' + i, cpuDice[i]);
   }
@@ -975,16 +1077,16 @@ function showFloatText(text, cls, x, y) {
 
 // ===== Rolling Animation =====
 function startRollingAnimation(prefix, duration, callback) {
-  const dieEls = [
-    document.getElementById(prefix + '-die-0'),
-    document.getElementById(prefix + '-die-1'),
-    document.getElementById(prefix + '-die-2'),
-  ];
+  var dieEls = [];
+  for (var d = 0; d < diceCount; d++) {
+    dieEls.push(document.getElementById(prefix + '-die-' + d));
+  }
 
-  dieEls.forEach(function(el) { el.classList.add('rolling'); });
+  dieEls.forEach(function(el) { if (el) el.classList.add('rolling'); });
 
   var interval = setInterval(function() {
-    for (var i = 0; i < 3; i++) {
+    for (var i = 0; i < diceCount; i++) {
+      if (!dieEls[i]) continue;
       var rv = randInt(1, 6);
       var pattern = DOT_PATTERNS[rv];
       var html = '';
@@ -997,7 +1099,7 @@ function startRollingAnimation(prefix, duration, callback) {
 
   setTimeout(function() {
     clearInterval(interval);
-    dieEls.forEach(function(el) { el.classList.remove('rolling'); });
+    dieEls.forEach(function(el) { if (el) el.classList.remove('rolling'); });
     callback();
   }, duration);
 }
@@ -1012,7 +1114,7 @@ function playerRoll() {
   $btnClaim.disabled = true;
 
   startRollingAnimation('player', 250, function() {
-    playerDice = [randInt(1, 6), randInt(1, 6), randInt(1, 6)];
+    playerDice = rollNewDice();
     playerHasRolled = true;
     playerIsRolling = false;
     renderAllDice();
@@ -1025,7 +1127,7 @@ function playerRoll() {
 function playerClaim() {
   if (!gameActive || !playerHasRolled || playerIsRolling) return;
 
-  if (isTriple(playerDice)) {
+  if (isAllSame(playerDice)) {
     if (piecesRemaining > 0) {
       playerScore++;
       renderScores();
@@ -1034,7 +1136,7 @@ function playerClaim() {
       showFloatText('+1', 'plus', rect.left + rect.width / 2 - 15, rect.top - 30);
       setLog('駒を獲得！', 'success');
       playerHasRolled = false;
-      playerDice = [0, 0, 0];
+      playerDice = makeEmptyDice();
       renderAllDice();
       checkWin();
     } else {
@@ -1077,13 +1179,13 @@ function cpuRoll() {
   startRollingAnimation('cpu', 250, function() {
     if (!gameActive) return;
 
-    cpuDice = [randInt(1, 6), randInt(1, 6), randInt(1, 6)];
+    cpuDice = rollNewDice();
     cpuHasRolled = true;
     cpuIsRolling = false;
     renderAllDice();
 
     var params = CPU_PARAMS[difficulty];
-    var gotTriple = isTriple(cpuDice);
+    var gotTriple = isAllSame(cpuDice);
 
     if (gotTriple) {
       var reactionDelay = rand(params.reactionMin, params.reactionMax);
@@ -1118,7 +1220,7 @@ function cpuClaim(correct) {
       showFlash('cpu-claim');
       setLog('CPUが駒を獲得！', 'fail');
       cpuHasRolled = false;
-      cpuDice = [0, 0, 0];
+      cpuDice = makeEmptyDice();
       renderAllDice();
       if (!checkWin()) {
         cpuLoop();
@@ -1202,9 +1304,12 @@ function initGame(diff) {
   difficulty = diff;
   lastDifficulty = diff;
 
+  // Build dice DOM for selected count
+  buildDiceDOM();
+
   // Reset state
-  playerDice = [0, 0, 0];
-  cpuDice = [0, 0, 0];
+  playerDice = makeEmptyDice();
+  cpuDice = makeEmptyDice();
   playerScore = 0;
   cpuScore = 0;
   piecesRemaining = TOTAL_PIECES;
@@ -1237,8 +1342,9 @@ function retryGame() {
   clearTimeout(cpuTimers.roll);
   clearTimeout(cpuTimers.claim);
 
-  playerDice = [0, 0, 0];
-  cpuDice = [0, 0, 0];
+  buildDiceDOM();
+  playerDice = makeEmptyDice();
+  cpuDice = makeEmptyDice();
   playerScore = 0;
   cpuScore = 0;
   piecesRemaining = TOTAL_PIECES;
@@ -1310,7 +1416,8 @@ document.addEventListener('touchend', function(e) {
   lastTap = now;
 }, { passive: false });
 
-// Initial token render
+// Initial setup
+buildDiceDOM();
 renderTokens();
 </script>
 
