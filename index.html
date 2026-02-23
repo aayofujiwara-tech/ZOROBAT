@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>サイコロぞろ目バトル</title>
+<style>
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Hiragino Sans', 'Meiryo', 'Noto Sans JP', sans-serif;
+  background: #1a1a2e;
+  color: #eee;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  user-select: none;
+  overflow-x: hidden;
+}
+
+/* ===== Title Screen ===== */
+#title-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 30px;
+  padding: 20px;
+}
+
+#title-screen h1 {
+  font-size: clamp(1.8rem, 5vw, 2.8rem);
+  background: linear-gradient(135deg, #e94560, #f5a623);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-align: center;
+}
+
+#title-screen .subtitle {
+  color: #888;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.difficulty-select {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.difficulty-select label {
+  font-size: 1rem;
+  text-align: center;
+  color: #ccc;
+  margin-bottom: 4px;
+}
+
+.diff-btn {
+  padding: 14px 24px;
+  font-size: 1.1rem;
+  border: 2px solid;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.diff-btn:hover { transform: scale(1.05); }
+.diff-btn:active { transform: scale(0.97); }
+
+.diff-btn.easy { color: #4ade80; border-color: #4ade80; }
+.diff-btn.easy:hover { background: #4ade8022; }
+
+.diff-btn.normal { color: #60a5fa; border-color: #60a5fa; }
+.diff-btn.normal:hover { background: #60a5fa22; }
+
+.diff-btn.hard { color: #f87171; border-color: #f87171; }
+.diff-btn.hard:hover { background: #f8717122; }
+
+/* ===== Game Screen ===== */
+#game-screen {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 500px;
+  min-height: 100vh;
+  padding: 12px 16px;
+  gap: 8px;
+}
+
+/* ===== Player Areas ===== */
+.player-area {
+  width: 100%;
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+}
+
+.player-area.cpu {
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+}
+
+.player-area.player {
+  background: rgba(96, 165, 250, 0.08);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+}
+
+.player-label {
+  font-size: 0.85rem;
+  font-weight: bold;
+  letter-spacing: 0.05em;
+}
+
+.cpu .player-label { color: #f87171; }
+.player .player-label { color: #60a5fa; }
+
+.dice-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* ===== Dice ===== */
+.die {
+  width: 70px;
+  height: 70px;
+  border-radius: 14px;
+  display: grid;
+  grid-template-rows: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
+  padding: 10px;
+  gap: 2px;
+  position: relative;
+  transition: transform 0.15s;
+}
+
+.cpu .die {
+  background: linear-gradient(145deg, #4a1a1a, #3a1212);
+  border: 2px solid #f8717144;
+  box-shadow: 0 4px 12px rgba(248, 113, 113, 0.15);
+}
+
+.player .die {
+  background: linear-gradient(145deg, #1a2a4a, #121e3a);
+  border: 2px solid #60a5fa44;
+  box-shadow: 0 4px 12px rgba(96, 165, 250, 0.15);
+}
+
+.die.rolling {
+  animation: diceShake 0.08s infinite alternate;
+}
+
+@keyframes diceShake {
+  0% { transform: rotate(-8deg) scale(1.05); }
+  100% { transform: rotate(8deg) scale(1.05); }
+}
+
+.die.triple {
+  animation: tripleGlow 0.6s ease-in-out infinite alternate;
+}
+
+.cpu .die.triple {
+  border-color: #f87171;
+  box-shadow: 0 0 20px rgba(248, 113, 113, 0.5);
+}
+
+.player .die.triple {
+  border-color: #60a5fa;
+  box-shadow: 0 0 20px rgba(96, 165, 250, 0.5);
+}
+
+@keyframes tripleGlow {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.05); }
+}
+
+.die.empty {
+  opacity: 0.3;
+}
+
+.dot {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.dot.visible {
+  background: #eee;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+.cpu .dot.visible {
+  background: #fca5a5;
+}
+
+.player .dot.visible {
+  background: #93c5fd;
+}
+
+/* Dot placement grid positions */
+.dot[data-pos="1"] { grid-row: 1; grid-column: 1; }
+.dot[data-pos="2"] { grid-row: 1; grid-column: 3; }
+.dot[data-pos="3"] { grid-row: 2; grid-column: 2; }
+.dot[data-pos="4"] { grid-row: 3; grid-column: 1; }
+.dot[data-pos="5"] { grid-row: 3; grid-column: 3; }
+.dot[data-pos="6"] { grid-row: 1; grid-column: 2; }
+.dot[data-pos="7"] { grid-row: 2; grid-column: 1; }
+.dot[data-pos="8"] { grid-row: 2; grid-column: 3; }
+.dot[data-pos="9"] { grid-row: 3; grid-column: 2; }
+
+/* ===== Center / Score Area ===== */
+.center-area {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 0;
+}
+
+.score-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+}
+
+.score-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.score-item .score-label {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.score-item .score-value {
+  font-size: 1.8rem;
+  font-weight: bold;
+}
+
+.score-item.cpu-score .score-value { color: #f87171; }
+.score-item.player-score .score-value { color: #60a5fa; }
+
+.remaining-pieces {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.piece {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #f5a623, #e8961c);
+  box-shadow: 0 2px 8px rgba(245, 166, 35, 0.4);
+  transition: all 0.3s;
+}
+
+.piece.taken {
+  opacity: 0.15;
+  transform: scale(0.7);
+}
+
+.vs-text {
+  font-size: 1.2rem;
+  color: #666;
+  font-weight: bold;
+}
+
+/* ===== Log ===== */
+.log-area {
+  width: 100%;
+  min-height: 28px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #aaa;
+  padding: 4px;
+}
+
+.log-area .log-msg {
+  animation: fadeInLog 0.3s;
+}
+
+@keyframes fadeInLog {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.log-msg.success { color: #4ade80; }
+.log-msg.fail { color: #f87171; }
+.log-msg.info { color: #fbbf24; }
+
+/* ===== Controls ===== */
+.controls {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  max-width: 360px;
+  padding: 8px 0;
+}
+
+.game-btn {
+  flex: 1;
+  padding: 16px 12px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+
+.game-btn:active { transform: scale(0.95); }
+
+.game-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+#btn-roll {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+}
+
+#btn-roll:hover:not(:disabled) {
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+}
+
+#btn-claim {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+}
+
+#btn-claim:hover:not(:disabled) {
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.6);
+}
+
+.key-hint {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: normal;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
+/* ===== Result Overlay ===== */
+#result-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  z-index: 100;
+  animation: fadeIn 0.5s;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+#result-overlay .result-text {
+  font-size: clamp(2rem, 8vw, 3.5rem);
+  font-weight: bold;
+}
+
+#result-overlay .result-text.win {
+  background: linear-gradient(135deg, #4ade80, #22c55e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+#result-overlay .result-text.lose {
+  background: linear-gradient(135deg, #f87171, #ef4444);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+#result-overlay .result-sub {
+  color: #aaa;
+  font-size: 1rem;
+}
+
+#btn-retry {
+  padding: 14px 40px;
+  font-size: 1.1rem;
+  border: 2px solid #eee;
+  border-radius: 12px;
+  background: transparent;
+  color: #eee;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+#btn-retry:hover {
+  background: #eee;
+  color: #1a1a2e;
+}
+
+/* ===== Effects ===== */
+.claim-flash {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 50;
+  animation: flash 0.4s ease-out forwards;
+}
+
+.claim-flash.success { background: rgba(74, 222, 128, 0.2); }
+.claim-flash.fail { background: rgba(248, 113, 113, 0.2); }
+
+@keyframes flash {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* floating +1 / -1 */
+.float-text {
+  position: fixed;
+  font-size: 2rem;
+  font-weight: bold;
+  pointer-events: none;
+  z-index: 60;
+  animation: floatUp 1s ease-out forwards;
+}
+
+.float-text.plus { color: #4ade80; }
+.float-text.minus { color: #f87171; }
+
+@keyframes floatUp {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-60px) scale(1.3); }
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 400px) {
+  .die {
+    width: 58px;
+    height: 58px;
+    padding: 8px;
+    border-radius: 11px;
+  }
+  .game-btn {
+    padding: 14px 8px;
+    font-size: 1.05rem;
+  }
+}
+
+@media (min-width: 600px) {
+  .die {
+    width: 80px;
+    height: 80px;
+    padding: 12px;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== Title Screen ===== -->
+<div id="title-screen">
+  <h1>サイコロぞろ目バトル</h1>
+  <p class="subtitle">3つのサイコロでぞろ目を狙え！<br>先に駒を2つ取った方の勝ち</p>
+  <div class="difficulty-select">
+    <label>CPUの強さを選択</label>
+    <button class="diff-btn easy" onclick="startGame('easy')">かんたん（Easy）</button>
+    <button class="diff-btn normal" onclick="startGame('normal')">ふつう（Normal）</button>
+    <button class="diff-btn hard" onclick="startGame('hard')">つよい（Hard）</button>
+  </div>
+</div>
+
+<!-- ===== Game Screen ===== -->
+<div id="game-screen">
+
+  <!-- CPU Area -->
+  <div class="player-area cpu">
+    <span class="player-label">CPU</span>
+    <div class="dice-row" id="cpu-dice">
+      <div class="die empty" id="cpu-die-0"></div>
+      <div class="die empty" id="cpu-die-1"></div>
+      <div class="die empty" id="cpu-die-2"></div>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="log-area" id="log-area"></div>
+
+  <!-- Center -->
+  <div class="center-area">
+    <div class="score-display">
+      <div class="score-item cpu-score">
+        <span class="score-label">CPU</span>
+        <span class="score-value" id="cpu-score">0</span>
+      </div>
+      <div class="remaining-pieces" id="remaining-pieces">
+        <div class="piece" id="piece-0"></div>
+        <div class="piece" id="piece-1"></div>
+        <div class="piece" id="piece-2"></div>
+      </div>
+      <div class="score-item player-score">
+        <span class="score-label">あなた</span>
+        <span class="score-value" id="player-score">0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Player Area -->
+  <div class="player-area player">
+    <span class="player-label">あなた</span>
+    <div class="dice-row" id="player-dice">
+      <div class="die empty" id="player-die-0"></div>
+      <div class="die empty" id="player-die-1"></div>
+      <div class="die empty" id="player-die-2"></div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button class="game-btn" id="btn-roll" disabled>
+      振る
+      <span class="key-hint">Space</span>
+    </button>
+    <button class="game-btn" id="btn-claim" disabled>
+      取る！
+      <span class="key-hint">Enter</span>
+    </button>
+  </div>
+</div>
+
+<!-- ===== Result Overlay ===== -->
+<div id="result-overlay">
+  <div class="result-text" id="result-text"></div>
+  <div class="result-sub" id="result-sub"></div>
+  <button id="btn-retry" onclick="backToTitle()">タイトルに戻る</button>
+</div>
+
+<script>
+// ===== Dot patterns for dice faces =====
+// Grid: 9 positions (1-9), 3x3
+// 1=TL, 2=TR, 3=C, 4=BL, 5=BR, 6=TC, 7=ML, 8=MR, 9=BC
+const DOT_PATTERNS = {
+  1: [3],
+  2: [2, 4],
+  3: [2, 3, 4],
+  4: [1, 2, 4, 5],
+  5: [1, 2, 3, 4, 5],
+  6: [1, 2, 4, 5, 7, 8],
+};
+
+// ===== CPU difficulty parameters =====
+const CPU_PARAMS = {
+  easy: {
+    rollIntervalMin: 1500,
+    rollIntervalMax: 2500,
+    reactionMin: 1000,
+    reactionMax: 2000,
+    falseClaimRate: 0.10,
+  },
+  normal: {
+    rollIntervalMin: 1000,
+    rollIntervalMax: 1800,
+    reactionMin: 500,
+    reactionMax: 1200,
+    falseClaimRate: 0.03,
+  },
+  hard: {
+    rollIntervalMin: 700,
+    rollIntervalMax: 1200,
+    reactionMin: 300,
+    reactionMax: 700,
+    falseClaimRate: 0.01,
+  },
+};
+
+// ===== Game State =====
+let gameActive = false;
+let difficulty = 'normal';
+
+let playerDice = [0, 0, 0];   // 0 = not rolled yet
+let cpuDice = [0, 0, 0];
+let playerScore = 0;
+let cpuScore = 0;
+let piecesRemaining = 3;      // shared pool
+let playerHasRolled = false;
+let playerIsRolling = false;
+
+let cpuTimers = { roll: null, claim: null };
+let cpuHasRolled = false;
+let cpuIsRolling = false;
+
+const WIN_SCORE = 2;
+
+// ===== DOM References =====
+const $titleScreen = document.getElementById('title-screen');
+const $gameScreen = document.getElementById('game-screen');
+const $resultOverlay = document.getElementById('result-overlay');
+const $resultText = document.getElementById('result-text');
+const $resultSub = document.getElementById('result-sub');
+const $logArea = document.getElementById('log-area');
+
+const $btnRoll = document.getElementById('btn-roll');
+const $btnClaim = document.getElementById('btn-claim');
+
+const $playerScore = document.getElementById('player-score');
+const $cpuScore = document.getElementById('cpu-score');
+
+// ===== Utility =====
+function rand(min, max) {
+  return Math.random() * (max - min) + min;
+}
+
+function randInt(min, max) {
+  return Math.floor(rand(min, max + 1));
+}
+
+function isTriple(dice) {
+  return dice[0] > 0 && dice[0] === dice[1] && dice[1] === dice[2];
+}
+
+// ===== Rendering =====
+function renderDie(elementId, value, isTripleState) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+
+  el.classList.remove('empty', 'triple');
+  if (value === 0) {
+    el.classList.add('empty');
+  }
+  if (isTripleState) {
+    el.classList.add('triple');
+  }
+
+  const pattern = value > 0 ? DOT_PATTERNS[value] : [];
+  let html = '';
+  for (let i = 1; i <= 9; i++) {
+    const vis = pattern.includes(i) ? 'visible' : '';
+    html += `<div class="dot ${vis}" data-pos="${i}"></div>`;
+  }
+  el.innerHTML = html;
+}
+
+function renderAllDice() {
+  const pTriple = isTriple(playerDice);
+  const cTriple = isTriple(cpuDice);
+  for (let i = 0; i < 3; i++) {
+    renderDie(`player-die-${i}`, playerDice[i], pTriple);
+    renderDie(`cpu-die-${i}`, cpuDice[i], cTriple);
+  }
+}
+
+function renderScores() {
+  $playerScore.textContent = playerScore;
+  $cpuScore.textContent = cpuScore;
+
+  const totalTaken = playerScore + cpuScore;
+  for (let i = 0; i < 3; i++) {
+    const pieceEl = document.getElementById(`piece-${i}`);
+    if (i < totalTaken) {
+      pieceEl.classList.add('taken');
+    } else {
+      pieceEl.classList.remove('taken');
+    }
+  }
+  piecesRemaining = 3 - totalTaken;
+}
+
+function setLog(msg, cls) {
+  $logArea.innerHTML = `<span class="log-msg ${cls || ''}">${msg}</span>`;
+}
+
+function clearLog() {
+  $logArea.innerHTML = '';
+}
+
+// ===== Effects =====
+function showFlash(type) {
+  const flash = document.createElement('div');
+  flash.className = `claim-flash ${type}`;
+  document.body.appendChild(flash);
+  setTimeout(() => flash.remove(), 500);
+}
+
+function showFloatText(text, cls, x, y) {
+  const el = document.createElement('div');
+  el.className = `float-text ${cls}`;
+  el.textContent = text;
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
+}
+
+// ===== Rolling Animation =====
+function startRollingAnimation(prefix, duration, callback) {
+  const dieEls = [
+    document.getElementById(`${prefix}-die-0`),
+    document.getElementById(`${prefix}-die-1`),
+    document.getElementById(`${prefix}-die-2`),
+  ];
+
+  dieEls.forEach(el => el.classList.add('rolling'));
+
+  const interval = setInterval(() => {
+    for (let i = 0; i < 3; i++) {
+      const rv = randInt(1, 6);
+      const pattern = DOT_PATTERNS[rv];
+      let html = '';
+      for (let p = 1; p <= 9; p++) {
+        html += `<div class="dot ${pattern.includes(p) ? 'visible' : ''}" data-pos="${p}"></div>`;
+      }
+      dieEls[i].innerHTML = html;
+    }
+  }, 50);
+
+  setTimeout(() => {
+    clearInterval(interval);
+    dieEls.forEach(el => el.classList.remove('rolling'));
+    callback();
+  }, duration);
+}
+
+// ===== Player Actions =====
+function playerRoll() {
+  if (!gameActive || playerIsRolling) return;
+
+  playerIsRolling = true;
+  playerHasRolled = false;
+  $btnRoll.disabled = true;
+  $btnClaim.disabled = true;
+
+  startRollingAnimation('player', 300, () => {
+    playerDice = [randInt(1, 6), randInt(1, 6), randInt(1, 6)];
+    playerHasRolled = true;
+    playerIsRolling = false;
+    renderAllDice();
+    $btnRoll.disabled = false;
+    $btnClaim.disabled = false;
+
+    if (isTriple(playerDice)) {
+      setLog(`ぞろ目！ [${playerDice[0]}-${playerDice[1]}-${playerDice[2]}]`, 'info');
+    } else {
+      clearLog();
+    }
+  });
+}
+
+function playerClaim() {
+  if (!gameActive || !playerHasRolled || playerIsRolling) return;
+
+  if (isTriple(playerDice)) {
+    // Successful claim
+    if (piecesRemaining > 0) {
+      playerScore++;
+      renderScores();
+      showFlash('success');
+      const rect = $btnClaim.getBoundingClientRect();
+      showFloatText('+1', 'plus', rect.left + rect.width / 2 - 15, rect.top - 30);
+      setLog('駒を獲得！', 'success');
+      playerHasRolled = false;
+      playerDice = [0, 0, 0];
+      renderAllDice();
+      checkWin();
+    } else {
+      setLog('駒がもうありません', 'info');
+    }
+  } else {
+    // False claim - penalty
+    showFlash('fail');
+    const rect = $btnClaim.getBoundingClientRect();
+    if (playerScore > 0) {
+      playerScore--;
+      renderScores();
+      showFloatText('-1', 'minus', rect.left + rect.width / 2 - 15, rect.top - 30);
+      setLog('ぞろ目じゃない！駒を1つ返却…', 'fail');
+    } else {
+      showFloatText('Miss!', 'minus', rect.left + rect.width / 2 - 25, rect.top - 30);
+      setLog('ぞろ目じゃない！', 'fail');
+    }
+  }
+}
+
+// ===== CPU Logic =====
+function cpuLoop() {
+  if (!gameActive) return;
+
+  const params = CPU_PARAMS[difficulty];
+  const rollDelay = rand(params.rollIntervalMin, params.rollIntervalMax);
+
+  cpuTimers.roll = setTimeout(() => {
+    if (!gameActive) return;
+
+    cpuRoll();
+  }, rollDelay);
+}
+
+function cpuRoll() {
+  if (!gameActive) return;
+
+  cpuIsRolling = true;
+  cpuHasRolled = false;
+
+  startRollingAnimation('cpu', 300, () => {
+    if (!gameActive) return;
+
+    cpuDice = [randInt(1, 6), randInt(1, 6), randInt(1, 6)];
+    cpuHasRolled = true;
+    cpuIsRolling = false;
+    renderAllDice();
+
+    const params = CPU_PARAMS[difficulty];
+    const gotTriple = isTriple(cpuDice);
+
+    if (gotTriple) {
+      // CPU notices the triple after reaction delay
+      const reactionDelay = rand(params.reactionMin, params.reactionMax);
+      cpuTimers.claim = setTimeout(() => {
+        if (!gameActive || !cpuHasRolled) return;
+        cpuClaim(true);
+      }, reactionDelay);
+    } else if (Math.random() < params.falseClaimRate) {
+      // CPU makes a false claim sometimes
+      const falseDelay = rand(params.reactionMin, params.reactionMax) * 1.5;
+      cpuTimers.claim = setTimeout(() => {
+        if (!gameActive || !cpuHasRolled) return;
+        cpuClaim(false);
+      }, falseDelay);
+    } else {
+      // No triple, no false claim - roll again
+      cpuLoop();
+    }
+  });
+}
+
+function cpuClaim(correct) {
+  if (!gameActive) return;
+
+  if (correct) {
+    if (piecesRemaining > 0) {
+      cpuScore++;
+      renderScores();
+      showFlash('fail');
+      setLog('CPUが駒を獲得！', 'fail');
+      cpuHasRolled = false;
+      cpuDice = [0, 0, 0];
+      renderAllDice();
+      if (!checkWin()) {
+        cpuLoop();
+      }
+    } else {
+      cpuLoop();
+    }
+  } else {
+    // CPU false claim
+    if (cpuScore > 0) {
+      cpuScore--;
+      renderScores();
+      setLog('CPUが誤申告！駒を1つ返却', 'success');
+    } else {
+      setLog('CPUが誤申告！', 'success');
+    }
+    cpuHasRolled = false;
+    cpuLoop();
+  }
+}
+
+// ===== Win Check =====
+function checkWin() {
+  if (playerScore >= WIN_SCORE) {
+    endGame('player');
+    return true;
+  }
+  if (cpuScore >= WIN_SCORE) {
+    endGame('cpu');
+    return true;
+  }
+  return false;
+}
+
+function endGame(winner) {
+  gameActive = false;
+  clearTimeout(cpuTimers.roll);
+  clearTimeout(cpuTimers.claim);
+
+  $btnRoll.disabled = true;
+  $btnClaim.disabled = true;
+
+  setTimeout(() => {
+    $resultOverlay.style.display = 'flex';
+    if (winner === 'player') {
+      $resultText.textContent = 'YOU WIN!';
+      $resultText.className = 'result-text win';
+      $resultSub.textContent = 'おめでとうございます！';
+    } else {
+      $resultText.textContent = 'YOU LOSE...';
+      $resultText.className = 'result-text lose';
+      $resultSub.textContent = 'CPUの勝利です';
+    }
+  }, 500);
+}
+
+// ===== Game Start / Reset =====
+function startGame(diff) {
+  difficulty = diff;
+
+  // Reset state
+  playerDice = [0, 0, 0];
+  cpuDice = [0, 0, 0];
+  playerScore = 0;
+  cpuScore = 0;
+  piecesRemaining = 3;
+  playerHasRolled = false;
+  playerIsRolling = false;
+  cpuHasRolled = false;
+  cpuIsRolling = false;
+
+  renderAllDice();
+  renderScores();
+  clearLog();
+
+  $titleScreen.style.display = 'none';
+  $gameScreen.style.display = 'flex';
+  $resultOverlay.style.display = 'none';
+
+  $btnRoll.disabled = false;
+  $btnClaim.disabled = false;
+
+  gameActive = true;
+
+  // Start CPU
+  cpuLoop();
+}
+
+function backToTitle() {
+  gameActive = false;
+  clearTimeout(cpuTimers.roll);
+  clearTimeout(cpuTimers.claim);
+
+  $gameScreen.style.display = 'none';
+  $resultOverlay.style.display = 'none';
+  $titleScreen.style.display = 'flex';
+}
+
+// ===== Controls =====
+$btnRoll.addEventListener('click', playerRoll);
+$btnClaim.addEventListener('click', playerClaim);
+
+document.addEventListener('keydown', (e) => {
+  if (!gameActive) return;
+  if (e.code === 'Space') {
+    e.preventDefault();
+    playerRoll();
+  }
+  if (e.code === 'Enter') {
+    e.preventDefault();
+    playerClaim();
+  }
+});
+
+// Prevent double-tap zoom on mobile
+let lastTap = 0;
+document.addEventListener('touchend', (e) => {
+  const now = Date.now();
+  if (now - lastTap < 300) {
+    e.preventDefault();
+  }
+  lastTap = now;
+}, { passive: false });
+</script>
+
+</body>
+</html>
