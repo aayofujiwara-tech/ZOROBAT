@@ -1716,7 +1716,10 @@ function playerRoll() {
     playerIsRolling = false;
     renderAllDice();
     $btnRoll.disabled = false;
-    $btnClaim.disabled = false;
+    // Online mode: keep claim disabled (Step 5 will enable it)
+    if (gameMode !== 'online') {
+      $btnClaim.disabled = false;
+    }
     clearLog();
 
     // Write dice to Firebase for opponent to see
@@ -1731,6 +1734,8 @@ function playerRoll() {
 
 function playerClaim() {
   if (!gameActive || !playerHasRolled || playerIsRolling) return;
+  // Online mode: claim is handled in Step 5 via Firebase transaction
+  if (gameMode === 'online') return;
 
   if (isAllSame(playerDice)) {
     if (piecesRemaining > 0) {
@@ -2041,7 +2046,8 @@ function initOnlineGame(dc) {
     showCountdown(function() {
       gameActive = true;
       $btnRoll.disabled = false;
-      $btnClaim.disabled = false;
+      // Keep claim disabled in online mode (Step 5 will enable it)
+      $btnClaim.disabled = true;
       if (isHost) {
         fbDB.ref('rooms/' + currentRoomCode + '/status').set('playing');
       }
