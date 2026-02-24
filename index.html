@@ -941,6 +941,7 @@ body {
   font-family: inherit;
   outline: none;
   transition: border-color 0.25s;
+  ime-mode: disabled;
 }
 
 .room-code-input:focus {
@@ -1142,7 +1143,7 @@ body {
   </div>
   <div class="title-divider"></div>
   <span class="section-label">ルームコード</span>
-  <input type="text" class="room-code-input" id="room-code-input" maxlength="4" placeholder="ABCD" autocomplete="off" spellcheck="false">
+  <input type="text" class="room-code-input" id="room-code-input" maxlength="4" placeholder="ABCD" autocomplete="off" spellcheck="false" inputmode="latin" autocapitalize="characters">
   <div class="error-msg" id="join-error-msg"></div>
   <button class="join-btn" id="btn-join-room" onclick="joinRoom()">参加する</button>
   <button class="back-btn" onclick="showScreen('online-lobby-screen')">戻る</button>
@@ -2646,6 +2647,54 @@ function backToTitle() {
   $resultOverlay.style.display = 'none';
   showScreen('title-screen');
 }
+
+// ===== Room Code Input Sanitization =====
+(function() {
+  var rcInput = document.getElementById('room-code-input');
+  if (!rcInput) return;
+
+  // Block IME composition
+  var isComposing = false;
+  rcInput.addEventListener('compositionstart', function() { isComposing = true; });
+  rcInput.addEventListener('compositionend', function() {
+    isComposing = false;
+    // Clean up any IME input that got through
+    rcInput.value = rcInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 4);
+  });
+
+  // Filter input to uppercase alphanumeric only
+  rcInput.addEventListener('input', function() {
+    if (isComposing) return;
+    var cleaned = rcInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 4);
+    if (rcInput.value !== cleaned) {
+      rcInput.value = cleaned;
+    }
+  });
+
+  // Prevent non-alphanumeric key presses
+  rcInput.addEventListener('keydown', function(e) {
+    // Allow control keys
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'Enter'].indexOf(e.key) !== -1) return;
+    // Block if already 4 chars (unless selection exists)
+    if (rcInput.value.length >= 4 && rcInput.selectionStart === rcInput.selectionEnd) {
+      e.preventDefault();
+      return;
+    }
+    // Only allow A-Z, a-z, 0-9
+    if (!/^[A-Za-z0-9]$/.test(e.key)) {
+      e.preventDefault();
+    }
+  });
+
+  // Block paste of invalid characters
+  rcInput.addEventListener('paste', function(e) {
+    e.preventDefault();
+    var text = (e.clipboardData || window.clipboardData).getData('text');
+    var cleaned = text.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 4 - rcInput.value.length);
+    document.execCommand('insertText', false, cleaned);
+  });
+})();
 
 // ===== Controls =====
 $btnRoll.addEventListener('click', playerRoll);
