@@ -1,6 +1,6 @@
 {
-  "name": "ダイスバトル",
-  "short_name": "ダイスバトル",
+  "name": "ZOROBAT",
+  "short_name": "ZOROBAT",
   "description": "リアルタイム対戦ダイスゲーム",
   "start_url": "/index.html",
   "display": "standalone",
