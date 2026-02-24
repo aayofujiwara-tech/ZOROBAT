@@ -751,6 +751,10 @@ body {
   .player-area { padding: 18px 16px; gap: 14px; }
 }
 </style>
+<!-- Firebase SDK (CDN) -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 </head>
 <body>
 
@@ -1419,6 +1423,33 @@ document.addEventListener('touchend', function(e) {
 // Initial setup
 buildDiceDOM();
 renderTokens();
+
+// ===== Firebase Setup =====
+const firebaseConfig = {
+  apiKey: "AIzaSyDCZAflsJ52jJSiefpT2PwyIcQ0n0i6eEg",
+  authDomain: "dice-battle-2460f.firebaseapp.com",
+  databaseURL: "https://dice-battle-2460f-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "dice-battle-2460f",
+  storageBucket: "dice-battle-2460f.firebasestorage.app",
+  messagingSenderId: "455841170299",
+  appId: "1:455841170299:web:328dcafbae091fdea3b3de",
+  measurementId: "G-N7PY2Q9QNF"
+};
+
+firebase.initializeApp(firebaseConfig);
+const fbAuth = firebase.auth();
+const fbDB = firebase.database();
+
+let myUid = null;
+
+fbAuth.signInAnonymously()
+  .then(function(result) {
+    myUid = result.user.uid;
+    console.log('[Firebase] 匿名認証成功 UID:', myUid);
+  })
+  .catch(function(error) {
+    console.error('[Firebase] 匿名認証失敗:', error.code, error.message);
+  });
 </script>
 
 </body>
