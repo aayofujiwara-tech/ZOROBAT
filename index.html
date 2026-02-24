@@ -1051,7 +1051,7 @@ body {
   <div class="title-divider"></div>
   <span class="section-label">ルーム</span>
   <div class="lobby-cards">
-    <div class="lobby-card create" onclick="showScreen('create-room-screen')">
+    <div class="lobby-card create" onclick="createRoom()">
       <span class="lobby-icon">&#x1F3E0;</span>
       <span class="lobby-name">部屋を作る</span>
       <span class="lobby-sub">コードを共有</span>
@@ -1092,6 +1092,39 @@ body {
   <div class="error-msg" id="join-error-msg"></div>
   <button class="join-btn" id="btn-join-room" onclick="joinRoom()">参加する</button>
   <button class="back-btn" onclick="showScreen('online-lobby-screen')">戻る</button>
+</div>
+
+<!-- ===== Online Setting Screen (after both join) ===== -->
+<div id="online-setting-screen" class="screen">
+  <div class="title-logo">
+    <h1>オンライン対戦</h1>
+    <p class="subtitle" id="online-setting-subtitle">サイコロの個数を選んでください</p>
+  </div>
+  <div class="title-divider"></div>
+  <!-- Host: dice count selection -->
+  <div id="online-host-setting">
+    <span class="section-label">サイコロの個数</span>
+    <div class="dice-count-cards" style="margin-top:12px;">
+      <div class="dice-count-card" id="online-dc-2" onclick="selectOnlineDiceCount(2)">
+        <span class="dc-icon">&#x1F3B2;&#x1F3B2;</span>
+        <span class="dc-name">2個</span>
+        <span class="dc-sub">カジュアル</span>
+      </div>
+      <div class="dice-count-card selected" id="online-dc-3" onclick="selectOnlineDiceCount(3)">
+        <span class="dc-icon">&#x1F3B2;&#x1F3B2;&#x1F3B2;</span>
+        <span class="dc-name">3個</span>
+        <span class="dc-sub">スタンダード</span>
+      </div>
+    </div>
+    <button class="join-btn" style="margin-top:20px;" onclick="confirmOnlineDiceCount()">この設定で開始</button>
+  </div>
+  <!-- Guest: waiting for host -->
+  <div id="online-guest-waiting" style="display:none;">
+    <div class="waiting-text">
+      ホストが設定中です<span class="waiting-dots"><span>.</span><span>.</span><span>.</span></span>
+    </div>
+  </div>
+  <button class="back-btn" onclick="leaveRoom()">退出する</button>
 </div>
 
 <!-- ===== Countdown Overlay ===== -->
@@ -1228,7 +1261,7 @@ const $countdownText = document.getElementById('countdown-text');
 const $cpuArea = document.getElementById('cpu-area');
 
 // All screen elements
-const ALL_SCREENS = ['title-screen', 'cpu-setup-screen', 'online-lobby-screen', 'create-room-screen', 'join-room-screen'];
+const ALL_SCREENS = ['title-screen', 'cpu-setup-screen', 'online-lobby-screen', 'create-room-screen', 'join-room-screen', 'online-setting-screen'];
 
 function showScreen(screenId) {
   ALL_SCREENS.forEach(function(id) {
@@ -1242,7 +1275,110 @@ function showScreen(screenId) {
   if (joinInput && screenId !== 'join-room-screen') joinInput.value = '';
 }
 
+// ===== Online Room State =====
+let currentRoomCode = null;
+let isHost = false;
+let roomListeners = [];
+let roomTimeoutTimer = null;
+let onlineDiceCount = 3;
+
+const ROOM_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const ROOM_TIMEOUT_MS = 5 * 60 * 1000;
+
+function generateRoomCode() {
+  var code = '';
+  for (var i = 0; i < 4; i++) {
+    code += ROOM_CODE_CHARS.charAt(Math.floor(Math.random() * ROOM_CODE_CHARS.length));
+  }
+  return code;
+}
+
+function cleanupRoom() {
+  roomListeners.forEach(function(unsub) { unsub(); });
+  roomListeners = [];
+  if (roomTimeoutTimer) {
+    clearTimeout(roomTimeoutTimer);
+    roomTimeoutTimer = null;
+  }
+}
+
+function createRoom() {
+  if (!myUid) {
+    alert('認証中です。少々お待ちください。');
+    return;
+  }
+
+  var code = generateRoomCode();
+  var roomRef = fbDB.ref('rooms/' + code);
+
+  roomRef.once('value').then(function(snap) {
+    if (snap.exists()) {
+      // Code collision, retry
+      createRoom();
+      return;
+    }
+
+    var roomData = {
+      hostUid: myUid,
+      guestUid: null,
+      status: 'waiting',
+      diceCount: 3,
+      createdAt: firebase.database.ServerValue.TIMESTAMP
+    };
+
+    return roomRef.set(roomData).then(function() {
+      currentRoomCode = code;
+      isHost = true;
+      document.getElementById('room-code-display').textContent = code;
+      showScreen('create-room-screen');
+
+      // Listen for guest joining
+      var guestRef = fbDB.ref('rooms/' + code + '/guestUid');
+      var guestCb = guestRef.on('value', function(snap) {
+        var guestUid = snap.val();
+        if (guestUid) {
+          // Guest joined - move to setting screen
+          fbDB.ref('rooms/' + code + '/status').set('setting');
+          showOnlineSettingScreen(true);
+        }
+      });
+      roomListeners.push(function() { guestRef.off('value', guestCb); });
+
+      // Listen for room deletion (e.g. timeout)
+      var roomCb = roomRef.on('value', function(snap) {
+        if (!snap.exists() && currentRoomCode === code) {
+          cleanupRoom();
+          currentRoomCode = null;
+          showScreen('online-lobby-screen');
+        }
+      });
+      roomListeners.push(function() { roomRef.off('value', roomCb); });
+
+      // Auto-delete after 5 min
+      roomTimeoutTimer = setTimeout(function() {
+        if (currentRoomCode === code) {
+          roomRef.remove();
+          cleanupRoom();
+          currentRoomCode = null;
+          showScreen('online-lobby-screen');
+        }
+      }, ROOM_TIMEOUT_MS);
+
+      // onDisconnect cleanup for host
+      roomRef.onDisconnect().remove();
+    });
+  }).catch(function(err) {
+    console.error('[Firebase] ルーム作成失敗:', err);
+    alert('ルーム作成に失敗しました');
+  });
+}
+
 function cancelCreateRoom() {
+  if (currentRoomCode) {
+    fbDB.ref('rooms/' + currentRoomCode).remove();
+    cleanupRoom();
+    currentRoomCode = null;
+  }
   showScreen('online-lobby-screen');
 }
 
@@ -1255,8 +1391,124 @@ function joinRoom() {
     errEl.textContent = '4文字のコードを入力してください';
     return;
   }
-  // Actual Firebase join will be implemented in Step 3
-  errEl.textContent = '※ まだ接続機能は未実装です';
+
+  if (!myUid) {
+    errEl.textContent = '認証中です。少々お待ちください。';
+    return;
+  }
+
+  var roomRef = fbDB.ref('rooms/' + code);
+
+  roomRef.once('value').then(function(snap) {
+    if (!snap.exists()) {
+      errEl.textContent = 'この部屋は存在しません';
+      return;
+    }
+
+    var room = snap.val();
+
+    if (room.guestUid) {
+      errEl.textContent = 'この部屋は満員です';
+      return;
+    }
+
+    if (room.hostUid === myUid) {
+      errEl.textContent = '自分の部屋には参加できません';
+      return;
+    }
+
+    // Join the room
+    return roomRef.child('guestUid').set(myUid).then(function() {
+      currentRoomCode = code;
+      isHost = false;
+
+      // onDisconnect: remove guestUid
+      roomRef.child('guestUid').onDisconnect().remove();
+
+      // Listen for status changes (host sets settings, starts game, etc.)
+      var statusRef = fbDB.ref('rooms/' + code + '/status');
+      var statusCb = statusRef.on('value', function(snap) {
+        var status = snap.val();
+        if (status === 'setting') {
+          showOnlineSettingScreen(false);
+        }
+      });
+      roomListeners.push(function() { statusRef.off('value', statusCb); });
+
+      // Listen for room deletion
+      var roomCb = roomRef.on('value', function(snap) {
+        if (!snap.exists() && currentRoomCode === code) {
+          cleanupRoom();
+          currentRoomCode = null;
+          alert('部屋が閉じられました');
+          showScreen('online-lobby-screen');
+        }
+      });
+      roomListeners.push(function() { roomRef.off('value', roomCb); });
+
+      showOnlineSettingScreen(false);
+    });
+  }).catch(function(err) {
+    console.error('[Firebase] 入室失敗:', err);
+    errEl.textContent = '入室に失敗しました';
+  });
+}
+
+function leaveRoom() {
+  if (currentRoomCode) {
+    if (isHost) {
+      fbDB.ref('rooms/' + currentRoomCode).remove();
+    } else {
+      fbDB.ref('rooms/' + currentRoomCode + '/guestUid').remove();
+      fbDB.ref('rooms/' + currentRoomCode + '/status').set('waiting');
+    }
+    cleanupRoom();
+    currentRoomCode = null;
+  }
+  showScreen('online-lobby-screen');
+}
+
+function showOnlineSettingScreen(asHost) {
+  showScreen('online-setting-screen');
+  var hostEl = document.getElementById('online-host-setting');
+  var guestEl = document.getElementById('online-guest-waiting');
+  var subtitleEl = document.getElementById('online-setting-subtitle');
+
+  if (asHost) {
+    hostEl.style.display = '';
+    guestEl.style.display = 'none';
+    subtitleEl.textContent = 'サイコロの個数を選んでください';
+  } else {
+    hostEl.style.display = 'none';
+    guestEl.style.display = '';
+    subtitleEl.textContent = 'ホストが設定中です';
+
+    // Guest listens for diceCount change to start game (will be used in Step 4)
+    if (currentRoomCode) {
+      var dcRef = fbDB.ref('rooms/' + currentRoomCode + '/status');
+      var dcCb = dcRef.on('value', function(snap) {
+        var status = snap.val();
+        if (status === 'countdown' || status === 'playing') {
+          // Will be handled in Step 4
+        }
+      });
+      roomListeners.push(function() { dcRef.off('value', dcCb); });
+    }
+  }
+}
+
+function selectOnlineDiceCount(count) {
+  onlineDiceCount = count;
+  document.getElementById('online-dc-2').classList.toggle('selected', count === 2);
+  document.getElementById('online-dc-3').classList.toggle('selected', count === 3);
+}
+
+function confirmOnlineDiceCount() {
+  if (!currentRoomCode) return;
+  // Save dice count to Firebase
+  fbDB.ref('rooms/' + currentRoomCode + '/diceCount').set(onlineDiceCount);
+  // Step 4 will handle the actual game start here
+  console.log('[Online] ダイス個数確定:', onlineDiceCount, '(ゲーム開始はStep4で実装)');
 }
 
 const $btnRoll = document.getElementById('btn-roll');
