@@ -1637,7 +1637,10 @@ function renderAllDice() {
 function renderScores() {
   $playerScore.textContent = playerScore;
   $cpuScore.textContent = cpuScore;
-  piecesRemaining = TOTAL_PIECES - playerScore - cpuScore;
+  // In online mode, piecesRemaining is set by Firebase listener
+  if (gameMode !== 'online') {
+    piecesRemaining = TOTAL_PIECES - playerScore - cpuScore;
+  }
   renderTokens();
 }
 
@@ -1716,10 +1719,7 @@ function playerRoll() {
     playerIsRolling = false;
     renderAllDice();
     $btnRoll.disabled = false;
-    // Online mode: keep claim disabled (Step 5 will enable it)
-    if (gameMode !== 'online') {
-      $btnClaim.disabled = false;
-    }
+    $btnClaim.disabled = false;
     clearLog();
 
     // Write dice to Firebase for opponent to see
@@ -1734,8 +1734,10 @@ function playerRoll() {
 
 function playerClaim() {
   if (!gameActive || !playerHasRolled || playerIsRolling) return;
-  // Online mode: claim is handled in Step 5 via Firebase transaction
-  if (gameMode === 'online') return;
+  if (gameMode === 'online') {
+    onlineClaim();
+    return;
+  }
 
   if (isAllSame(playerDice)) {
     if (piecesRemaining > 0) {
@@ -1765,6 +1767,130 @@ function playerClaim() {
       setLog('ぞろ目じゃない！', 'fail');
     }
   }
+}
+
+// ===== Online Claim =====
+function onlineClaim() {
+  if (!gameActive || !playerHasRolled || playerIsRolling) return;
+  if (!currentRoomCode) return;
+
+  var claimedDice = playerDice.slice();
+  var isZorome = isAllSame(claimedDice);
+  var preScore = playerScore;
+
+  // Disable claim immediately to prevent double-click
+  $btnClaim.disabled = true;
+  playerHasRolled = false;
+
+  var gameStateRef = fbDB.ref('rooms/' + currentRoomCode + '/gameState');
+
+  gameStateRef.transaction(function(state) {
+    if (!state) return state;
+
+    if (isZorome) {
+      if (state.piecesRemaining > 0) {
+        state.scores[myUid] = (state.scores[myUid] || 0) + 1;
+        state.piecesRemaining--;
+      }
+    } else {
+      if ((state.scores[myUid] || 0) > 0) {
+        state.scores[myUid]--;
+        state.piecesRemaining++;
+      }
+    }
+
+    state.lastClaim = {
+      uid: myUid,
+      isZorome: isZorome,
+      count: (state.lastClaim ? state.lastClaim.count || 0 : 0) + 1
+    };
+
+    return state;
+  }).then(function(result) {
+    if (result.committed) {
+      var rect = $btnClaim.getBoundingClientRect();
+      if (isZorome) {
+        showFlash('success');
+        showFloatText('+1', 'plus', rect.left + rect.width / 2 - 15, rect.top - 30);
+        setLog('駒を獲得！', 'success');
+      } else {
+        showFlash('fail');
+        if (preScore > 0) {
+          showFloatText('-1', 'minus', rect.left + rect.width / 2 - 15, rect.top - 30);
+          setLog('ぞろ目じゃない！駒を1つ返却…', 'fail');
+        } else {
+          showFloatText('Miss!', 'minus', rect.left + rect.width / 2 - 25, rect.top - 30);
+          setLog('ぞろ目じゃない！', 'fail');
+        }
+      }
+
+      // Clear dice locally and in Firebase
+      playerDice = makeEmptyDice();
+      renderAllDice();
+      fbDB.ref('rooms/' + currentRoomCode + '/players/' + myUid).update({
+        dice: makeEmptyDice(),
+        rolling: false
+      });
+    }
+  }).catch(function(err) {
+    console.error('[Online] Claim transaction failed:', err);
+    // Re-enable claim on error so player can retry
+    $btnClaim.disabled = false;
+    playerHasRolled = true;
+  });
+}
+
+// ===== Online Game State Listener =====
+function setupGameStateListener() {
+  if (!currentRoomCode) return;
+
+  var lastClaimCount = null;
+  var gsRef = fbDB.ref('rooms/' + currentRoomCode + '/gameState');
+
+  var gsCb = gsRef.on('value', function(snap) {
+    var state = snap.val();
+    if (!state || !state.scores) return;
+
+    var myScore = state.scores[myUid] || 0;
+    var oppScore = state.scores[opponentUid] || 0;
+
+    playerScore = myScore;
+    cpuScore = oppScore;
+    piecesRemaining = state.piecesRemaining;
+    renderScores();
+
+    // Detect new claims
+    if (lastClaimCount === null) {
+      // First event: just initialize the counter, no effects
+      lastClaimCount = state.lastClaim ? state.lastClaim.count || 0 : 0;
+    } else if (state.lastClaim && state.lastClaim.count > lastClaimCount) {
+      lastClaimCount = state.lastClaim.count;
+
+      // Show opponent claim effects
+      if (state.lastClaim.uid === opponentUid) {
+        $cpuArea.classList.remove('claiming');
+        void $cpuArea.offsetWidth;
+        $cpuArea.classList.add('claiming');
+
+        if (state.lastClaim.isZorome) {
+          showFlash('cpu-claim');
+          setLog('相手が駒を獲得！', 'fail');
+        } else {
+          setLog('相手が誤申告！駒を1つ返却', 'success');
+        }
+      }
+    }
+
+    // Check win condition
+    if (!gameActive) return;
+    if (myScore >= WIN_SCORE) {
+      endGame('player');
+    } else if (oppScore >= WIN_SCORE) {
+      endGame('cpu');
+    }
+  });
+
+  onlineGameListeners.push(function() { gsRef.off('value', gsCb); });
 }
 
 // ===== CPU Logic =====
@@ -1872,6 +1998,13 @@ function endGame(winner) {
   $btnRoll.disabled = true;
   $btnClaim.disabled = true;
 
+  // Write winner to Firebase so both players see the result
+  if (gameMode === 'online' && currentRoomCode && isHost) {
+    fbDB.ref('rooms/' + currentRoomCode + '/status').set('finished');
+  }
+
+  var loseLabel = gameMode === 'online' ? '相手の勝利です' : 'CPUの勝利です';
+
   setTimeout(function() {
     $resultOverlay.style.display = 'flex';
     if (winner === 'player') {
@@ -1881,7 +2014,7 @@ function endGame(winner) {
     } else {
       $resultText.textContent = 'YOU LOSE...';
       $resultText.className = 'result-text lose';
-      $resultSub.textContent = 'CPUの勝利です';
+      $resultSub.textContent = loseLabel;
     }
   }, 600);
 }
@@ -1952,6 +2085,12 @@ function initGame(diff) {
 }
 
 function retryGame() {
+  // Online mode: go back to title (rematch requires room re-setup)
+  if (gameMode === 'online') {
+    backToTitle();
+    return;
+  }
+
   $resultOverlay.style.display = 'none';
   clearTimeout(cpuTimers.roll);
   clearTimeout(cpuTimers.claim);
@@ -2039,14 +2178,28 @@ function initOnlineGame(dc) {
       rolling: false
     });
 
+    // Host initializes shared game state
+    if (isHost) {
+      var initScores = {};
+      initScores[myUid] = 0;
+      initScores[opponentUid] = 0;
+      fbDB.ref('rooms/' + currentRoomCode + '/gameState').set({
+        scores: initScores,
+        piecesRemaining: TOTAL_PIECES,
+        lastClaim: null
+      });
+    }
+
     // Listen for opponent's dice
     setupOpponentDiceListener();
+
+    // Listen for game state changes (scores, claims, win)
+    setupGameStateListener();
 
     // Set status to playing after countdown
     showCountdown(function() {
       gameActive = true;
       $btnRoll.disabled = false;
-      // Keep claim disabled in online mode (Step 5 will enable it)
       $btnClaim.disabled = true;
       if (isHost) {
         fbDB.ref('rooms/' + currentRoomCode + '/status').set('playing');
