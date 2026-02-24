@@ -2154,10 +2154,7 @@ function endGame(winner) {
       $resultSub.textContent = loseLabel;
     }
 
-    // In online mode, listen for opponent leaving during result screen
-    if (gameMode === 'online' && currentRoomCode) {
-      setupOpponentLeaveListener();
-    }
+    // In-game disconnect listener is still active and handles result screen too
   }, 600);
 }
 
@@ -2344,6 +2341,16 @@ function initOnlineGame(dc) {
     // Listen for game state changes (scores, claims, win)
     setupGameStateListener();
 
+    // Listen for opponent disconnect during game
+    setupInGameDisconnectListener();
+
+    // Re-setup onDisconnect for game phase
+    if (isHost) {
+      fbDB.ref('rooms/' + currentRoomCode).onDisconnect().remove();
+    } else {
+      fbDB.ref('rooms/' + currentRoomCode + '/guestUid').onDisconnect().remove();
+    }
+
     // Set status to playing after countdown
     showCountdown(function() {
       gameActive = true;
@@ -2354,6 +2361,61 @@ function initOnlineGame(dc) {
       }
     });
   });
+}
+
+function setupInGameDisconnectListener() {
+  if (!currentRoomCode) return;
+
+  var roomRef = fbDB.ref('rooms/' + currentRoomCode);
+  var dcCb = roomRef.on('value', function(snap) {
+    var room = snap.val();
+
+    if (!room) {
+      // Room deleted (host disconnected)
+      roomRef.off('value', dcCb);
+      handleOpponentDisconnect();
+      return;
+    }
+
+    // Check if opponent left
+    var opponentStillHere = isHost ? room.guestUid : room.hostUid;
+    if (!opponentStillHere) {
+      roomRef.off('value', dcCb);
+      handleOpponentDisconnect();
+    }
+  });
+
+  onlineGameListeners.push(function() {
+    roomRef.off('value', dcCb);
+  });
+}
+
+function handleOpponentDisconnect() {
+  if (!gameActive && $resultOverlay.style.display === 'flex') {
+    // Already on result screen - show opponent left message
+    showOpponentLeft();
+    return;
+  }
+
+  // Game was in progress - stop game and show disconnect message
+  gameActive = false;
+  clearFreeze();
+  $btnRoll.disabled = true;
+  $btnClaim.disabled = true;
+
+  setLog('相手が切断しました', 'fail');
+
+  // Show result overlay with disconnect message
+  setTimeout(function() {
+    $resultButtons.style.display = 'none';
+    $rematchWait.style.display = 'none';
+    $opponentLeftMsg.style.display = 'block';
+
+    $resultOverlay.style.display = 'flex';
+    $resultText.textContent = '中断';
+    $resultText.className = 'result-text lose';
+    $resultSub.textContent = '相手が切断しました';
+  }, 400);
 }
 
 function setupOpponentDiceListener() {
@@ -2454,7 +2516,7 @@ function onlineRematch() {
       startRematchRound();
     }
   });
-  // Opponent leave listener is already active from endGame
+  // In-game disconnect listener is still active from the game phase
 }
 
 function startRematchRound() {
@@ -2515,6 +2577,7 @@ function startRematchRound() {
   // Re-setup listeners
   setupOpponentDiceListener();
   setupGameStateListener();
+  setupInGameDisconnectListener();
 
   // Countdown and start
   showCountdown(function() {
@@ -2524,34 +2587,6 @@ function startRematchRound() {
     if (isHost) {
       fbDB.ref('rooms/' + currentRoomCode + '/status').set('playing');
     }
-  });
-}
-
-function setupOpponentLeaveListener() {
-  if (!currentRoomCode) return;
-
-  // Listen for room deletion or opponent leaving
-  var roomRef = fbDB.ref('rooms/' + currentRoomCode);
-  var leaveCb = roomRef.on('value', function(snap) {
-    var room = snap.val();
-
-    // Room deleted or opponent gone
-    if (!room) {
-      roomRef.off('value', leaveCb);
-      showOpponentLeft();
-      return;
-    }
-
-    // Check if opponent left (guest uid gone for host, host uid gone for guest)
-    var opponentStillHere = isHost ? room.guestUid : room.hostUid;
-    if (!opponentStillHere) {
-      roomRef.off('value', leaveCb);
-      showOpponentLeft();
-    }
-  });
-
-  onlineGameListeners.push(function() {
-    roomRef.off('value', leaveCb);
   });
 }
 
@@ -2583,11 +2618,12 @@ function backToTitle() {
     cleanupOnlineGameListeners();
 
     if (currentRoomCode) {
+      // Cancel onDisconnect before manual cleanup
       if (isHost) {
-        // Host deletes the room
+        fbDB.ref('rooms/' + currentRoomCode).onDisconnect().cancel();
         fbDB.ref('rooms/' + currentRoomCode).remove();
       } else {
-        // Guest removes own data and guestUid
+        fbDB.ref('rooms/' + currentRoomCode + '/guestUid').onDisconnect().cancel();
         fbDB.ref('rooms/' + currentRoomCode + '/guestUid').remove();
         fbDB.ref('rooms/' + currentRoomCode + '/players/' + myUid).remove();
         fbDB.ref('rooms/' + currentRoomCode + '/rematch/' + myUid).remove();
