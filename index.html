@@ -2,8 +2,15 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>サイコロぞろ目バトル</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0e27">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ダイスバトル">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
 /* ===== Reset & Base ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -236,7 +243,7 @@ body {
   max-width: 480px;
   min-height: 100vh;
   min-height: 100dvh;
-  padding: 10px 16px;
+  padding: max(10px, env(safe-area-inset-top)) 16px max(10px, env(safe-area-inset-bottom)) 16px;
   gap: 6px;
   justify-content: space-between;
 }
@@ -1026,6 +1033,330 @@ body {
   #game-screen { gap: 10px; }
   .player-area { padding: 18px 16px; gap: 14px; }
 }
+
+/* ===== PWA / Mobile Touch Optimizations ===== */
+
+/* Safe area support for notch/rounded corners */
+body {
+  padding:
+    env(safe-area-inset-top)
+    env(safe-area-inset-right)
+    env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+/* Touch optimization for all interactive elements */
+button, .mode-card, .lobby-card, .diff-card, .dice-count-card {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(0, 229, 255, 0.15);
+}
+
+/* Minimum touch target size (48px) */
+.back-btn {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.join-btn {
+  min-height: 48px;
+}
+
+.result-btn {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+/* Game buttons: ensure good touch targets with spacing */
+.game-btn {
+  min-height: 56px;
+  touch-action: manipulation;
+}
+
+.controls {
+  gap: 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+/* Scroll prevention during game */
+#game-screen {
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+body.game-active {
+  overflow: hidden;
+  touch-action: none;
+}
+
+/* Bounce scroll prevention for iOS */
+html {
+  overscroll-behavior: none;
+}
+
+body {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Allow scrolling on menu/lobby screens when content overflows */
+.screen {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Hide key hints on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .key-hint {
+    display: none;
+  }
+
+  /* Stronger tap feedback for touch */
+  .game-btn:active:not(:disabled) {
+    transform: scale(0.90);
+    transition: transform 0.06s;
+  }
+
+  .mode-card:active, .lobby-card:active, .diff-card:active, .dice-count-card:active {
+    transform: scale(0.95);
+    transition: transform 0.06s;
+  }
+
+  .result-btn:active {
+    transform: scale(0.93);
+    transition: transform 0.06s;
+  }
+
+  .back-btn:active, .join-btn:active {
+    transform: scale(0.95);
+    transition: transform 0.06s;
+  }
+}
+
+/* ===== Responsive: Small phones (320-375px) ===== */
+@media (max-width: 375px) {
+  .screen {
+    gap: 20px;
+    padding: 16px 12px;
+  }
+
+  .title-logo h1 {
+    font-size: clamp(1.6rem, 5.5vw, 2.4rem);
+  }
+
+  .mode-card, .lobby-card {
+    padding: 20px 10px;
+    gap: 8px;
+  }
+
+  .mode-card .mode-icon, .lobby-card .lobby-icon {
+    font-size: 1.6rem;
+  }
+
+  .mode-card .mode-name, .lobby-card .lobby-name {
+    font-size: 0.9rem;
+  }
+
+  .diff-card {
+    padding: 14px 4px;
+    gap: 6px;
+  }
+
+  .diff-card .diff-icon {
+    font-size: 1.3rem;
+  }
+
+  .diff-card .diff-name {
+    font-size: 0.75rem;
+  }
+
+  .dice-count-cards {
+    gap: 8px;
+  }
+
+  .dice-count-card {
+    padding: 10px 6px;
+  }
+
+  .score-item .score-value {
+    font-size: 1.8rem;
+  }
+
+  .token {
+    width: 22px;
+    height: 22px;
+  }
+
+  .log-area {
+    font-size: 0.75rem;
+    min-height: 22px;
+  }
+}
+
+/* ===== Responsive: Standard phones (375-414px) ===== */
+@media (min-width: 376px) and (max-width: 414px) {
+  .die {
+    width: 70px;
+    height: 70px;
+    padding: 11px;
+    border-radius: 14px;
+  }
+
+  .dice-row {
+    gap: 12px;
+  }
+}
+
+/* ===== Responsive: Large phones / small tablets (414-768px) ===== */
+@media (min-width: 415px) and (max-width: 768px) {
+  .die {
+    width: 82px;
+    height: 82px;
+    padding: 13px;
+    border-radius: 16px;
+  }
+
+  .dice-row {
+    gap: 16px;
+  }
+
+  .game-btn {
+    font-size: 1.3rem;
+    min-height: 62px;
+  }
+}
+
+/* ===== Game screen mobile layout optimization ===== */
+@media (max-height: 700px) {
+  #game-screen {
+    padding: 6px 12px;
+    gap: 3px;
+  }
+
+  .player-area {
+    padding: 8px 12px;
+    gap: 8px;
+    border-radius: 14px;
+  }
+
+  .die {
+    width: 58px;
+    height: 58px;
+    padding: 9px;
+    border-radius: 12px;
+  }
+
+  .dice-row {
+    gap: 8px;
+  }
+
+  .center-area {
+    padding: 6px 0;
+    gap: 4px;
+  }
+
+  .score-item .score-value {
+    font-size: 1.8rem;
+  }
+
+  .token {
+    width: 22px;
+    height: 22px;
+  }
+
+  .log-area {
+    min-height: 20px;
+    font-size: 0.75rem;
+  }
+
+  .game-btn {
+    padding: 14px 8px;
+    font-size: 1.1rem;
+    min-height: 50px;
+    border-radius: 12px;
+  }
+
+  .controls {
+    padding: 6px 0 max(8px, env(safe-area-inset-bottom));
+  }
+
+  .freeze-msg {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+  }
+
+  .player-label {
+    font-size: 0.65rem;
+  }
+}
+
+/* Very short screens (e.g. landscape or tiny phones) */
+@media (max-height: 580px) {
+  #game-screen {
+    padding: 4px 10px;
+    gap: 2px;
+  }
+
+  .player-area {
+    padding: 6px 10px;
+    gap: 6px;
+  }
+
+  .die {
+    width: 48px;
+    height: 48px;
+    padding: 7px;
+    border-radius: 10px;
+  }
+
+  .dice-row { gap: 6px; }
+
+  .center-area { padding: 4px 0; }
+
+  .score-item .score-value {
+    font-size: 1.5rem;
+  }
+
+  .token {
+    width: 18px;
+    height: 18px;
+  }
+
+  .log-area {
+    min-height: 18px;
+    font-size: 0.7rem;
+  }
+
+  .game-btn {
+    padding: 10px 6px;
+    font-size: 1rem;
+    min-height: 44px;
+  }
+
+  .controls {
+    padding: 4px 0 max(4px, env(safe-area-inset-bottom));
+  }
+}
+
+/* ===== Standalone PWA mode adjustments ===== */
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* Ensure game screen fills correctly without address bar */
+  .screen {
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+  }
+
+  #game-screen {
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+  }
+}
 </style>
 <!-- Firebase SDK (CDN) -->
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -1346,6 +1677,8 @@ function showScreen(screenId) {
   if (joinErr) joinErr.textContent = '';
   var joinInput = document.getElementById('room-code-input');
   if (joinInput && screenId !== 'join-room-screen') joinInput.value = '';
+  // Toggle scroll lock for game screen (mobile)
+  document.body.classList.toggle('game-active', screenId === 'game-screen');
 }
 
 // ===== Online Room State =====
@@ -2212,6 +2545,7 @@ function initGame(diff) {
     if (el) el.classList.remove('active');
   });
   $gameScreen.style.display = 'flex';
+  document.body.classList.add('game-active');
   $resultOverlay.style.display = 'none';
 
   $btnRoll.disabled = true;
@@ -2313,6 +2647,7 @@ function initOnlineGame(dc) {
       if (el) el.classList.remove('active');
     });
     $gameScreen.style.display = 'flex';
+    document.body.classList.add('game-active');
     $resultOverlay.style.display = 'none';
 
     $btnRoll.disabled = true;
@@ -2644,6 +2979,7 @@ function backToTitle() {
   $opponentLeftMsg.style.display = 'none';
 
   $gameScreen.style.display = 'none';
+  document.body.classList.remove('game-active');
   $resultOverlay.style.display = 'none';
   showScreen('title-screen');
 }
@@ -2765,6 +3101,19 @@ fbAuth.signInAnonymously()
   .catch(function(error) {
     console.error('[Firebase] 匿名認証失敗:', error.code, error.message);
   });
+
+// ===== Service Worker Registration =====
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js')
+      .then(function(reg) {
+        console.log('[SW] 登録成功:', reg.scope);
+      })
+      .catch(function(err) {
+        console.log('[SW] 登録失敗:', err);
+      });
+  });
+}
 </script>
 
 </body>
