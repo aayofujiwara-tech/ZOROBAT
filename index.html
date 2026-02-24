@@ -1135,9 +1135,9 @@ body {
 <!-- ===== Game Screen ===== -->
 <div id="game-screen">
 
-  <!-- CPU Area -->
+  <!-- Opponent Area -->
   <div class="player-area cpu" id="cpu-area">
-    <span class="player-label">CPU</span>
+    <span class="player-label" id="opponent-label">CPU</span>
     <div class="dice-row" id="cpu-dice"></div>
   </div>
 
@@ -1148,7 +1148,7 @@ body {
   <div class="center-area">
     <div class="score-display">
       <div class="score-item cpu-score">
-        <span class="score-label">CPU</span>
+        <span class="score-label" id="opponent-score-label">CPU</span>
         <span class="score-value" id="cpu-score">0</span>
       </div>
       <div class="token-area">
@@ -1231,6 +1231,7 @@ const CPU_PARAMS = {
 
 // ===== Game State =====
 let gameActive = false;
+let gameMode = 'cpu'; // 'cpu' or 'online'
 let difficulty = 'normal';
 let lastDifficulty = 'normal';
 let diceCount = 3;
@@ -1483,16 +1484,20 @@ function showOnlineSettingScreen(asHost) {
     guestEl.style.display = '';
     subtitleEl.textContent = 'ホストが設定中です';
 
-    // Guest listens for diceCount change to start game (will be used in Step 4)
+    // Guest listens for status change to start game
     if (currentRoomCode) {
-      var dcRef = fbDB.ref('rooms/' + currentRoomCode + '/status');
-      var dcCb = dcRef.on('value', function(snap) {
+      var statusRef = fbDB.ref('rooms/' + currentRoomCode + '/status');
+      var statusCb = statusRef.on('value', function(snap) {
         var status = snap.val();
-        if (status === 'countdown' || status === 'playing') {
-          // Will be handled in Step 4
+        if (status === 'countdown') {
+          // Read diceCount then start
+          fbDB.ref('rooms/' + currentRoomCode + '/diceCount').once('value').then(function(dcSnap) {
+            var dc = dcSnap.val() || 3;
+            initOnlineGame(dc);
+          });
         }
       });
-      roomListeners.push(function() { dcRef.off('value', dcCb); });
+      roomListeners.push(function() { statusRef.off('value', statusCb); });
     }
   }
 }
@@ -1505,10 +1510,14 @@ function selectOnlineDiceCount(count) {
 
 function confirmOnlineDiceCount() {
   if (!currentRoomCode) return;
-  // Save dice count to Firebase
-  fbDB.ref('rooms/' + currentRoomCode + '/diceCount').set(onlineDiceCount);
-  // Step 4 will handle the actual game start here
-  console.log('[Online] ダイス個数確定:', onlineDiceCount, '(ゲーム開始はStep4で実装)');
+  // Save dice count and start countdown
+  var roomRef = fbDB.ref('rooms/' + currentRoomCode);
+  roomRef.update({
+    diceCount: onlineDiceCount,
+    status: 'countdown'
+  }).then(function() {
+    initOnlineGame(onlineDiceCount);
+  });
 }
 
 const $btnRoll = document.getElementById('btn-roll');
@@ -1696,6 +1705,11 @@ function playerRoll() {
   $btnRoll.disabled = true;
   $btnClaim.disabled = true;
 
+  // Notify online opponent that we are rolling
+  if (gameMode === 'online' && currentRoomCode) {
+    fbDB.ref('rooms/' + currentRoomCode + '/players/' + myUid + '/rolling').set(true);
+  }
+
   startRollingAnimation('player', 250, function() {
     playerDice = rollNewDice();
     playerHasRolled = true;
@@ -1704,6 +1718,14 @@ function playerRoll() {
     $btnRoll.disabled = false;
     $btnClaim.disabled = false;
     clearLog();
+
+    // Write dice to Firebase for opponent to see
+    if (gameMode === 'online' && currentRoomCode) {
+      fbDB.ref('rooms/' + currentRoomCode + '/players/' + myUid).update({
+        dice: playerDice,
+        rolling: false
+      });
+    }
   });
 }
 
@@ -1955,10 +1977,159 @@ function retryGame() {
   });
 }
 
+// ===== Online Game =====
+let onlineGameListeners = [];
+let opponentUid = null;
+
+function cleanupOnlineGameListeners() {
+  onlineGameListeners.forEach(function(unsub) { unsub(); });
+  onlineGameListeners = [];
+}
+
+function initOnlineGame(dc) {
+  gameMode = 'online';
+  diceCount = dc;
+
+  // Determine opponent UID
+  var roomRef = fbDB.ref('rooms/' + currentRoomCode);
+  roomRef.once('value').then(function(snap) {
+    var room = snap.val();
+    if (!room) return;
+    opponentUid = isHost ? room.guestUid : room.hostUid;
+
+    // Set labels
+    document.getElementById('opponent-label').textContent = '相手';
+    document.getElementById('opponent-score-label').textContent = '相手';
+
+    // Build dice DOM for selected count
+    buildDiceDOM();
+
+    // Reset state
+    playerDice = makeEmptyDice();
+    cpuDice = makeEmptyDice();
+    playerScore = 0;
+    cpuScore = 0;
+    piecesRemaining = TOTAL_PIECES;
+    playerHasRolled = false;
+    playerIsRolling = false;
+
+    renderAllDice();
+    renderScores();
+    clearLog();
+
+    // Hide all screens, show game
+    ALL_SCREENS.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.remove('active');
+    });
+    $gameScreen.style.display = 'flex';
+    $resultOverlay.style.display = 'none';
+
+    $btnRoll.disabled = true;
+    $btnClaim.disabled = true;
+
+    // Initialize player data in Firebase
+    fbDB.ref('rooms/' + currentRoomCode + '/players/' + myUid).set({
+      dice: makeEmptyDice(),
+      rolling: false
+    });
+
+    // Listen for opponent's dice
+    setupOpponentDiceListener();
+
+    // Set status to playing after countdown
+    showCountdown(function() {
+      gameActive = true;
+      $btnRoll.disabled = false;
+      $btnClaim.disabled = false;
+      if (isHost) {
+        fbDB.ref('rooms/' + currentRoomCode + '/status').set('playing');
+      }
+    });
+  });
+}
+
+function setupOpponentDiceListener() {
+  if (!currentRoomCode || !opponentUid) return;
+
+  var opRef = fbDB.ref('rooms/' + currentRoomCode + '/players/' + opponentUid);
+  var opRollingAnim = null;
+
+  var opCb = opRef.on('value', function(snap) {
+    var data = snap.val();
+    if (!data) return;
+
+    if (data.rolling) {
+      // Show rolling animation for opponent
+      if (!opRollingAnim) {
+        var dieEls = [];
+        for (var d = 0; d < diceCount; d++) {
+          var el = document.getElementById('cpu-die-' + d);
+          if (el) {
+            el.classList.remove('empty');
+            el.classList.add('rolling');
+            dieEls.push(el);
+          }
+        }
+        opRollingAnim = setInterval(function() {
+          for (var i = 0; i < dieEls.length; i++) {
+            var rv = randInt(1, 6);
+            var pattern = DOT_PATTERNS[rv];
+            var html = '';
+            for (var p = 1; p <= 9; p++) {
+              html += '<div class="dot ' + (pattern.includes(p) ? 'visible' : '') + '" data-pos="' + p + '"></div>';
+            }
+            dieEls[i].innerHTML = html;
+          }
+        }, 50);
+      }
+    } else {
+      // Stop rolling animation
+      if (opRollingAnim) {
+        clearInterval(opRollingAnim);
+        opRollingAnim = null;
+        for (var d = 0; d < diceCount; d++) {
+          var el = document.getElementById('cpu-die-' + d);
+          if (el) el.classList.remove('rolling');
+        }
+      }
+
+      // Show opponent's dice
+      if (data.dice) {
+        cpuDice = data.dice;
+        for (var i = 0; i < diceCount; i++) {
+          renderDie('cpu-die-' + i, cpuDice[i]);
+        }
+      }
+    }
+  });
+
+  onlineGameListeners.push(function() {
+    opRef.off('value', opCb);
+    if (opRollingAnim) {
+      clearInterval(opRollingAnim);
+      opRollingAnim = null;
+    }
+  });
+}
+
 function backToTitle() {
   gameActive = false;
   clearTimeout(cpuTimers.roll);
   clearTimeout(cpuTimers.claim);
+
+  if (gameMode === 'online') {
+    cleanupOnlineGameListeners();
+    if (currentRoomCode) {
+      fbDB.ref('rooms/' + currentRoomCode).remove();
+      cleanupRoom();
+      currentRoomCode = null;
+    }
+  }
+  gameMode = 'cpu';
+  // Reset labels back to CPU
+  document.getElementById('opponent-label').textContent = 'CPU';
+  document.getElementById('opponent-score-label').textContent = 'CPU';
 
   $gameScreen.style.display = 'none';
   $resultOverlay.style.display = 'none';
