@@ -564,6 +564,24 @@ body {
   letter-spacing: 0.05em;
 }
 
+/* ===== Freeze Penalty ===== */
+.freeze-msg {
+  text-align: center;
+  padding: 8px 16px;
+  color: var(--orange);
+  font-weight: 700;
+  font-size: 0.95rem;
+  background: rgba(255, 107, 53, 0.1);
+  border: 1px solid rgba(255, 107, 53, 0.3);
+  border-radius: 10px;
+  animation: freezePulse 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes freezePulse {
+  0% { border-color: rgba(255, 107, 53, 0.2); }
+  100% { border-color: rgba(255, 107, 53, 0.5); }
+}
+
 /* ===== Result Overlay ===== */
 #result-overlay {
   display: none;
@@ -1204,6 +1222,9 @@ body {
     <div class="dice-row" id="player-dice"></div>
   </div>
 
+  <!-- Freeze Penalty Message -->
+  <div class="freeze-msg" id="freeze-msg" style="display:none;"></div>
+
   <!-- Controls -->
   <div class="controls">
     <button class="game-btn" id="btn-roll" disabled>
@@ -1290,6 +1311,11 @@ let playerIsRolling = false;
 
 let cpuTimers = { roll: null, claim: null };
 let cpuHasRolled = false;
+
+// Freeze penalty state (2-dice mode only)
+let freezeActive = false;
+let freezeRemainingRolls = 0;
+const FREEZE_ROLL_COUNT = 3;
 let cpuIsRolling = false;
 
 const WIN_SCORE = 2;
@@ -1304,6 +1330,7 @@ const $logArea = document.getElementById('log-area');
 const $countdownOverlay = document.getElementById('countdown-overlay');
 const $countdownText = document.getElementById('countdown-text');
 const $cpuArea = document.getElementById('cpu-area');
+const $freezeMsg = document.getElementById('freeze-msg');
 
 // All screen elements
 const ALL_SCREENS = ['title-screen', 'cpu-setup-screen', 'online-lobby-screen', 'create-room-screen', 'join-room-screen', 'online-setting-screen'];
@@ -1747,9 +1774,49 @@ function startRollingAnimation(prefix, duration, callback) {
   }, duration);
 }
 
+// ===== Freeze Penalty (2-dice mode) =====
+function startFreeze() {
+  freezeActive = true;
+  freezeRemainingRolls = FREEZE_ROLL_COUNT;
+  $btnRoll.disabled = true;
+  $btnClaim.disabled = true;
+  updateFreezeDisplay();
+}
+
+function updateFreezeDisplay() {
+  $freezeMsg.textContent = 'ペナルティ中... 相手があと' + freezeRemainingRolls + '回振るまで待機';
+  $freezeMsg.style.display = 'block';
+}
+
+function decrementFreeze() {
+  if (!freezeActive) return;
+  freezeRemainingRolls--;
+  if (freezeRemainingRolls <= 0) {
+    endFreeze();
+  } else {
+    updateFreezeDisplay();
+  }
+}
+
+function endFreeze() {
+  freezeActive = false;
+  freezeRemainingRolls = 0;
+  $freezeMsg.style.display = 'none';
+  if (gameActive) {
+    $btnRoll.disabled = false;
+    $btnClaim.disabled = true;
+  }
+}
+
+function clearFreeze() {
+  freezeActive = false;
+  freezeRemainingRolls = 0;
+  $freezeMsg.style.display = 'none';
+}
+
 // ===== Player Actions =====
 function playerRoll() {
-  if (!gameActive || playerIsRolling) return;
+  if (!gameActive || playerIsRolling || freezeActive) return;
 
   playerIsRolling = true;
   playerHasRolled = false;
@@ -1781,7 +1848,7 @@ function playerRoll() {
 }
 
 function playerClaim() {
-  if (!gameActive || !playerHasRolled || playerIsRolling) return;
+  if (!gameActive || !playerHasRolled || playerIsRolling || freezeActive) return;
   if (gameMode === 'online') {
     onlineClaim();
     return;
@@ -1813,13 +1880,20 @@ function playerClaim() {
     } else {
       showFloatText('Miss!', 'minus', rect.left + rect.width / 2 - 25, rect.top - 30);
       setLog('ぞろ目じゃない！', 'fail');
+      // 2-dice mode: freeze penalty when score is 0
+      if (diceCount === 2) {
+        playerHasRolled = false;
+        playerDice = makeEmptyDice();
+        renderAllDice();
+        startFreeze();
+      }
     }
   }
 }
 
 // ===== Online Claim =====
 function onlineClaim() {
-  if (!gameActive || !playerHasRolled || playerIsRolling) return;
+  if (!gameActive || !playerHasRolled || playerIsRolling || freezeActive) return;
   if (!currentRoomCode) return;
 
   var claimedDice = playerDice.slice();
@@ -1869,6 +1943,10 @@ function onlineClaim() {
         } else {
           showFloatText('Miss!', 'minus', rect.left + rect.width / 2 - 25, rect.top - 30);
           setLog('ぞろ目じゃない！', 'fail');
+          // 2-dice mode: freeze penalty when score is 0
+          if (diceCount === 2) {
+            startFreeze();
+          }
         }
       }
 
@@ -1968,6 +2046,11 @@ function cpuRoll() {
     cpuIsRolling = false;
     renderAllDice();
 
+    // Decrement freeze counter if player is frozen
+    if (freezeActive) {
+      decrementFreeze();
+    }
+
     var params = CPU_PARAMS[difficulty];
     var gotTriple = isAllSame(cpuDice);
 
@@ -2042,6 +2125,7 @@ function endGame(winner) {
   gameActive = false;
   clearTimeout(cpuTimers.roll);
   clearTimeout(cpuTimers.claim);
+  clearFreeze();
 
   $btnRoll.disabled = true;
   $btnClaim.disabled = true;
@@ -2104,6 +2188,7 @@ function showCountdown(callback) {
 function initGame(diff) {
   difficulty = diff;
   lastDifficulty = diff;
+  clearFreeze();
 
   // Build dice DOM for selected count
   buildDiceDOM();
@@ -2151,6 +2236,7 @@ function retryGame() {
   $resultOverlay.style.display = 'none';
   clearTimeout(cpuTimers.roll);
   clearTimeout(cpuTimers.claim);
+  clearFreeze();
 
   buildDiceDOM();
   playerDice = makeEmptyDice();
@@ -2190,6 +2276,11 @@ function cleanupOnlineGameListeners() {
 function initOnlineGame(dc) {
   gameMode = 'online';
   diceCount = dc;
+  clearFreeze();
+
+  // Clean up lobby-phase listeners to prevent stale status listener
+  // from re-triggering initOnlineGame during rematch
+  cleanupRoom();
 
   // Determine opponent UID
   var roomRef = fbDB.ref('rooms/' + currentRoomCode);
@@ -2308,6 +2399,10 @@ function setupOpponentDiceListener() {
           var el = document.getElementById('cpu-die-' + d);
           if (el) el.classList.remove('rolling');
         }
+        // Opponent completed a roll - decrement freeze counter
+        if (freezeActive) {
+          decrementFreeze();
+        }
       }
 
       // Show opponent's dice
@@ -2364,6 +2459,7 @@ function onlineRematch() {
 
 function startRematchRound() {
   if (!currentRoomCode) return;
+  clearFreeze();
 
   // Clean up old game listeners to prevent double registration
   cleanupOnlineGameListeners();
