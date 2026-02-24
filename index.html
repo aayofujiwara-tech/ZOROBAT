@@ -704,6 +704,18 @@ body {
   40% { opacity: 1; }
 }
 
+.rematch-cancel-btn {
+  margin-top: 16px;
+  border: 2px solid var(--text-dim) !important;
+  color: var(--text-dim) !important;
+  font-size: 0.9rem;
+  padding: 8px 24px;
+}
+.rematch-cancel-btn:hover {
+  background: var(--text-dim) !important;
+  color: var(--bg-deep) !important;
+}
+
 .opponent-left {
   text-align: center;
   margin-top: 12px;
@@ -1581,6 +1593,7 @@ body {
   <div class="rematch-wait" id="rematch-wait" style="display:none;">
     <div class="rematch-wait-text">相手を待っています...</div>
     <div class="rematch-wait-dots"><span>.</span><span>.</span><span>.</span></div>
+    <button class="result-btn rematch-cancel-btn" id="btn-rematch-cancel">キャンセル</button>
   </div>
   <div class="opponent-left" id="opponent-left-msg" style="display:none;">
     <div class="opponent-left-text">相手が退出しました</div>
@@ -1933,6 +1946,7 @@ const $resultButtons = document.getElementById('result-buttons');
 const $rematchWait = document.getElementById('rematch-wait');
 const $opponentLeftMsg = document.getElementById('opponent-left-msg');
 const $btnLeftBackTitle = document.getElementById('btn-left-back-title');
+const $btnRematchCancel = document.getElementById('btn-rematch-cancel');
 
 const $playerScore = document.getElementById('player-score');
 const $cpuScore = document.getElementById('cpu-score');
@@ -2855,6 +2869,23 @@ function onlineRematch() {
   // In-game disconnect listener is still active from the game phase
 }
 
+function cancelRematchWait() {
+  if (!currentRoomCode || !myUid) return;
+
+  // Remove my rematch flag
+  fbDB.ref('rooms/' + currentRoomCode + '/rematch/' + myUid).remove();
+
+  // Stop listening for rematch
+  if (rematchListener) {
+    fbDB.ref('rooms/' + currentRoomCode + '/rematch').off('value', rematchListener);
+    rematchListener = null;
+  }
+
+  // Show result buttons again
+  $rematchWait.style.display = 'none';
+  $resultButtons.style.display = 'flex';
+}
+
 function startRematchRound() {
   if (!currentRoomCode) return;
   clearFreeze();
@@ -3038,6 +3069,7 @@ $btnClaim.addEventListener('click', playerClaim);
 $btnRetry.addEventListener('click', retryGame);
 $btnBackTitle.addEventListener('click', backToTitle);
 $btnLeftBackTitle.addEventListener('click', backToTitle);
+$btnRematchCancel.addEventListener('click', cancelRematchWait);
 
 document.addEventListener('keydown', function(e) {
   // Allow Enter on result screen for retry (only when buttons are visible)
