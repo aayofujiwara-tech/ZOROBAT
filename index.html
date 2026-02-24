@@ -2,8 +2,15 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>サイコロぞろ目バトル</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>ZOROBAT</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0e27">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ZOROBAT">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
 /* ===== Reset & Base ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -44,19 +51,7 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ===== Title Screen ===== */
-#title-screen {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  min-height: 100dvh;
-  gap: 32px;
-  padding: 24px;
-  width: 100%;
-  max-width: 480px;
-}
+/* ===== Title Screen (now uses .screen base) ===== */
 
 .title-logo {
   text-align: center;
@@ -248,7 +243,7 @@ body {
   max-width: 480px;
   min-height: 100vh;
   min-height: 100dvh;
-  padding: 10px 16px;
+  padding: max(10px, env(safe-area-inset-top)) 16px max(10px, env(safe-area-inset-bottom)) 16px;
   gap: 6px;
   justify-content: space-between;
 }
@@ -576,6 +571,24 @@ body {
   letter-spacing: 0.05em;
 }
 
+/* ===== Freeze Penalty ===== */
+.freeze-msg {
+  text-align: center;
+  padding: 8px 16px;
+  color: var(--orange);
+  font-weight: 700;
+  font-size: 0.95rem;
+  background: rgba(255, 107, 53, 0.1);
+  border: 1px solid rgba(255, 107, 53, 0.3);
+  border-radius: 10px;
+  animation: freezePulse 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes freezePulse {
+  0% { border-color: rgba(255, 107, 53, 0.2); }
+  100% { border-color: rgba(255, 107, 53, 0.5); }
+}
+
 /* ===== Result Overlay ===== */
 #result-overlay {
   display: none;
@@ -667,6 +680,42 @@ body {
   color: var(--bg-deep);
 }
 
+.rematch-wait {
+  text-align: center;
+  margin-top: 12px;
+}
+
+.rematch-wait-text {
+  color: var(--cyan);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.rematch-wait-dots span {
+  color: var(--cyan);
+  font-size: 1.5rem;
+  animation: dotBlink 1.4s infinite;
+}
+.rematch-wait-dots span:nth-child(2) { animation-delay: 0.2s; }
+.rematch-wait-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dotBlink {
+  0%, 80%, 100% { opacity: 0; }
+  40% { opacity: 1; }
+}
+
+.opponent-left {
+  text-align: center;
+  margin-top: 12px;
+}
+
+.opponent-left-text {
+  color: var(--orange);
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
 /* ===== Effects ===== */
 .claim-flash {
   position: fixed;
@@ -713,6 +762,240 @@ body {
   100% { box-shadow: none; }
 }
 
+/* ===== Online Screens ===== */
+.screen {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  gap: 28px;
+  padding: 24px;
+  width: 100%;
+  max-width: 480px;
+}
+
+.screen.active { display: flex; }
+
+/* Mode selection cards */
+.mode-cards {
+  display: flex;
+  gap: 14px;
+  width: 100%;
+}
+
+.mode-card {
+  flex: 1;
+  background: var(--bg-card);
+  border: 2px solid rgba(255,255,255,0.06);
+  border-radius: 18px;
+  padding: 28px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.25s;
+  position: relative;
+  overflow: hidden;
+}
+
+.mode-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 18px 18px 0 0;
+}
+
+.mode-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255,255,255,0.12);
+}
+
+.mode-card:active { transform: translateY(0) scale(0.97); }
+
+.mode-card .mode-icon { font-size: 2rem; line-height: 1; }
+.mode-card .mode-name { font-size: 1.05rem; font-weight: 800; }
+.mode-card .mode-sub { font-size: 0.7rem; color: var(--text-dim); }
+
+.mode-card.cpu::before { background: linear-gradient(90deg, var(--cyan), #3b82f6); }
+.mode-card.cpu .mode-name { color: var(--cyan); }
+.mode-card.cpu:hover { box-shadow: 0 8px 30px rgba(0, 229, 255, 0.15); border-color: var(--cyan-dim); }
+
+.mode-card.online::before { background: linear-gradient(90deg, var(--magenta), var(--orange)); }
+.mode-card.online .mode-name { color: var(--magenta); }
+.mode-card.online:hover { box-shadow: 0 8px 30px rgba(255, 45, 120, 0.15); border-color: var(--magenta-dim); }
+
+/* Back button */
+.back-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text-dim);
+  padding: 10px 28px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  letter-spacing: 0.03em;
+}
+
+.back-btn:hover {
+  border-color: rgba(255,255,255,0.25);
+  color: var(--text);
+}
+
+.back-btn:active { transform: scale(0.96); }
+
+/* Lobby cards */
+.lobby-cards {
+  display: flex;
+  gap: 14px;
+  width: 100%;
+}
+
+.lobby-card {
+  flex: 1;
+  background: var(--bg-card);
+  border: 2px solid rgba(255,255,255,0.06);
+  border-radius: 18px;
+  padding: 28px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.25s;
+  position: relative;
+  overflow: hidden;
+}
+
+.lobby-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 18px 18px 0 0;
+}
+
+.lobby-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255,255,255,0.12);
+}
+
+.lobby-card:active { transform: translateY(0) scale(0.97); }
+
+.lobby-card .lobby-icon { font-size: 2rem; line-height: 1; }
+.lobby-card .lobby-name { font-size: 1rem; font-weight: 800; }
+.lobby-card .lobby-sub { font-size: 0.7rem; color: var(--text-dim); }
+
+.lobby-card.create::before { background: linear-gradient(90deg, var(--gold), var(--orange)); }
+.lobby-card.create .lobby-name { color: var(--gold); }
+.lobby-card.create:hover { box-shadow: 0 8px 30px rgba(255, 215, 0, 0.15); border-color: var(--gold-dim); }
+
+.lobby-card.join::before { background: linear-gradient(90deg, var(--green), var(--cyan)); }
+.lobby-card.join .lobby-name { color: var(--green); }
+.lobby-card.join:hover { box-shadow: 0 8px 30px rgba(0, 255, 136, 0.15); border-color: rgba(0, 255, 136, 0.2); }
+
+/* Room code display */
+.room-code-display {
+  font-size: clamp(2.5rem, 10vw, 4rem);
+  font-weight: 900;
+  letter-spacing: 0.3em;
+  background: linear-gradient(135deg, var(--gold), var(--orange));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.3));
+  text-align: center;
+}
+
+.waiting-text {
+  color: var(--text-dim);
+  font-size: 0.95rem;
+  text-align: center;
+  line-height: 1.6;
+}
+
+@keyframes dotPulse {
+  0%, 20% { opacity: 0; }
+  50% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.waiting-dots span {
+  animation: dotPulse 1.4s infinite;
+}
+.waiting-dots span:nth-child(2) { animation-delay: 0.2s; }
+.waiting-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* Room code input */
+.room-code-input {
+  width: 200px;
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: 0.3em;
+  text-align: center;
+  text-transform: uppercase;
+  background: var(--bg-card);
+  border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  color: var(--text);
+  padding: 14px 10px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.25s;
+  ime-mode: disabled;
+}
+
+.room-code-input:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 20px rgba(0, 255, 136, 0.15);
+}
+
+.room-code-input::placeholder {
+  color: rgba(255,255,255,0.15);
+  letter-spacing: 0.2em;
+}
+
+.join-btn {
+  background: linear-gradient(135deg, var(--green), #00cc6a);
+  color: var(--bg-deep);
+  border: none;
+  padding: 14px 48px;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  letter-spacing: 0.03em;
+}
+
+.join-btn:hover {
+  box-shadow: 0 6px 24px rgba(0, 255, 136, 0.3);
+  transform: translateY(-2px);
+}
+
+.join-btn:active { transform: translateY(0) scale(0.97); }
+
+.join-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.error-msg {
+  color: var(--red);
+  font-size: 0.85rem;
+  font-weight: 700;
+  min-height: 1.2em;
+  text-align: center;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 380px) {
   .die {
@@ -750,6 +1033,330 @@ body {
   #game-screen { gap: 10px; }
   .player-area { padding: 18px 16px; gap: 14px; }
 }
+
+/* ===== PWA / Mobile Touch Optimizations ===== */
+
+/* Safe area support for notch/rounded corners */
+body {
+  padding:
+    env(safe-area-inset-top)
+    env(safe-area-inset-right)
+    env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+/* Touch optimization for all interactive elements */
+button, .mode-card, .lobby-card, .diff-card, .dice-count-card {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgba(0, 229, 255, 0.15);
+}
+
+/* Minimum touch target size (48px) */
+.back-btn {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.join-btn {
+  min-height: 48px;
+}
+
+.result-btn {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+/* Game buttons: ensure good touch targets with spacing */
+.game-btn {
+  min-height: 56px;
+  touch-action: manipulation;
+}
+
+.controls {
+  gap: 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+/* Scroll prevention during game */
+#game-screen {
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+body.game-active {
+  overflow: hidden;
+  touch-action: none;
+}
+
+/* Bounce scroll prevention for iOS */
+html {
+  overscroll-behavior: none;
+}
+
+body {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Allow scrolling on menu/lobby screens when content overflows */
+.screen {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Hide key hints on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .key-hint {
+    display: none;
+  }
+
+  /* Stronger tap feedback for touch */
+  .game-btn:active:not(:disabled) {
+    transform: scale(0.90);
+    transition: transform 0.06s;
+  }
+
+  .mode-card:active, .lobby-card:active, .diff-card:active, .dice-count-card:active {
+    transform: scale(0.95);
+    transition: transform 0.06s;
+  }
+
+  .result-btn:active {
+    transform: scale(0.93);
+    transition: transform 0.06s;
+  }
+
+  .back-btn:active, .join-btn:active {
+    transform: scale(0.95);
+    transition: transform 0.06s;
+  }
+}
+
+/* ===== Responsive: Small phones (320-375px) ===== */
+@media (max-width: 375px) {
+  .screen {
+    gap: 20px;
+    padding: 16px 12px;
+  }
+
+  .title-logo h1 {
+    font-size: clamp(1.6rem, 5.5vw, 2.4rem);
+  }
+
+  .mode-card, .lobby-card {
+    padding: 20px 10px;
+    gap: 8px;
+  }
+
+  .mode-card .mode-icon, .lobby-card .lobby-icon {
+    font-size: 1.6rem;
+  }
+
+  .mode-card .mode-name, .lobby-card .lobby-name {
+    font-size: 0.9rem;
+  }
+
+  .diff-card {
+    padding: 14px 4px;
+    gap: 6px;
+  }
+
+  .diff-card .diff-icon {
+    font-size: 1.3rem;
+  }
+
+  .diff-card .diff-name {
+    font-size: 0.75rem;
+  }
+
+  .dice-count-cards {
+    gap: 8px;
+  }
+
+  .dice-count-card {
+    padding: 10px 6px;
+  }
+
+  .score-item .score-value {
+    font-size: 1.8rem;
+  }
+
+  .token {
+    width: 22px;
+    height: 22px;
+  }
+
+  .log-area {
+    font-size: 0.75rem;
+    min-height: 22px;
+  }
+}
+
+/* ===== Responsive: Standard phones (375-414px) ===== */
+@media (min-width: 376px) and (max-width: 414px) {
+  .die {
+    width: 70px;
+    height: 70px;
+    padding: 11px;
+    border-radius: 14px;
+  }
+
+  .dice-row {
+    gap: 12px;
+  }
+}
+
+/* ===== Responsive: Large phones / small tablets (414-768px) ===== */
+@media (min-width: 415px) and (max-width: 768px) {
+  .die {
+    width: 82px;
+    height: 82px;
+    padding: 13px;
+    border-radius: 16px;
+  }
+
+  .dice-row {
+    gap: 16px;
+  }
+
+  .game-btn {
+    font-size: 1.3rem;
+    min-height: 62px;
+  }
+}
+
+/* ===== Game screen mobile layout optimization ===== */
+@media (max-height: 700px) {
+  #game-screen {
+    padding: 6px 12px;
+    gap: 3px;
+  }
+
+  .player-area {
+    padding: 8px 12px;
+    gap: 8px;
+    border-radius: 14px;
+  }
+
+  .die {
+    width: 58px;
+    height: 58px;
+    padding: 9px;
+    border-radius: 12px;
+  }
+
+  .dice-row {
+    gap: 8px;
+  }
+
+  .center-area {
+    padding: 6px 0;
+    gap: 4px;
+  }
+
+  .score-item .score-value {
+    font-size: 1.8rem;
+  }
+
+  .token {
+    width: 22px;
+    height: 22px;
+  }
+
+  .log-area {
+    min-height: 20px;
+    font-size: 0.75rem;
+  }
+
+  .game-btn {
+    padding: 14px 8px;
+    font-size: 1.1rem;
+    min-height: 50px;
+    border-radius: 12px;
+  }
+
+  .controls {
+    padding: 6px 0 max(8px, env(safe-area-inset-bottom));
+  }
+
+  .freeze-msg {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+  }
+
+  .player-label {
+    font-size: 0.65rem;
+  }
+}
+
+/* Very short screens (e.g. landscape or tiny phones) */
+@media (max-height: 580px) {
+  #game-screen {
+    padding: 4px 10px;
+    gap: 2px;
+  }
+
+  .player-area {
+    padding: 6px 10px;
+    gap: 6px;
+  }
+
+  .die {
+    width: 48px;
+    height: 48px;
+    padding: 7px;
+    border-radius: 10px;
+  }
+
+  .dice-row { gap: 6px; }
+
+  .center-area { padding: 4px 0; }
+
+  .score-item .score-value {
+    font-size: 1.5rem;
+  }
+
+  .token {
+    width: 18px;
+    height: 18px;
+  }
+
+  .log-area {
+    min-height: 18px;
+    font-size: 0.7rem;
+  }
+
+  .game-btn {
+    padding: 10px 6px;
+    font-size: 1rem;
+    min-height: 44px;
+  }
+
+  .controls {
+    padding: 4px 0 max(4px, env(safe-area-inset-bottom));
+  }
+}
+
+/* ===== Standalone PWA mode adjustments ===== */
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* Ensure game screen fills correctly without address bar */
+  .screen {
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+  }
+
+  #game-screen {
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+  }
+}
 </style>
 <!-- Firebase SDK (CDN) -->
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -758,10 +1365,32 @@ body {
 </head>
 <body>
 
-<!-- ===== Title Screen ===== -->
-<div id="title-screen">
+<!-- ===== Title Screen (Mode Selection) ===== -->
+<div id="title-screen" class="screen active">
   <div class="title-logo">
-    <h1>サイコロぞろ目バトル</h1>
+    <h1>ZOROBAT</h1>
+    <p class="subtitle">サイコロでぞろ目を狙え！<br>先に駒を2つ取った方の勝ち</p>
+  </div>
+  <div class="title-divider"></div>
+  <span class="section-label">対戦モード</span>
+  <div class="mode-cards">
+    <div class="mode-card cpu" onclick="showScreen('cpu-setup-screen')">
+      <span class="mode-icon">&#x1F916;</span>
+      <span class="mode-name">CPU対戦</span>
+      <span class="mode-sub">ひとりで練習</span>
+    </div>
+    <div class="mode-card online" onclick="showScreen('online-lobby-screen')">
+      <span class="mode-icon">&#x1F310;</span>
+      <span class="mode-name">オンライン対戦</span>
+      <span class="mode-sub">友だちと対戦</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CPU Setup Screen ===== -->
+<div id="cpu-setup-screen" class="screen">
+  <div class="title-logo">
+    <h1>CPU対戦</h1>
     <p class="subtitle" id="title-subtitle">3つのサイコロでぞろ目を狙え！<br>先に駒を2つ取った方の勝ち</p>
   </div>
   <div class="title-divider"></div>
@@ -796,6 +1425,92 @@ body {
       <span class="diff-sub">つよい</span>
     </div>
   </div>
+  <button class="back-btn" onclick="showScreen('title-screen')">戻る</button>
+</div>
+
+<!-- ===== Online Lobby Screen ===== -->
+<div id="online-lobby-screen" class="screen">
+  <div class="title-logo">
+    <h1>オンライン対戦</h1>
+    <p class="subtitle">ルームコードを共有して<br>友だちと対戦しよう</p>
+  </div>
+  <div class="title-divider"></div>
+  <span class="section-label">ルーム</span>
+  <div class="lobby-cards">
+    <div class="lobby-card create" onclick="createRoom()">
+      <span class="lobby-icon">&#x1F3E0;</span>
+      <span class="lobby-name">部屋を作る</span>
+      <span class="lobby-sub">コードを共有</span>
+    </div>
+    <div class="lobby-card join" onclick="showScreen('join-room-screen')">
+      <span class="lobby-icon">&#x1F6AA;</span>
+      <span class="lobby-name">部屋に入る</span>
+      <span class="lobby-sub">コードを入力</span>
+    </div>
+  </div>
+  <button class="back-btn" onclick="showScreen('title-screen')">戻る</button>
+</div>
+
+<!-- ===== Create Room Screen ===== -->
+<div id="create-room-screen" class="screen">
+  <div class="title-logo">
+    <h1>部屋を作成</h1>
+    <p class="subtitle">このコードを相手に伝えてください</p>
+  </div>
+  <div class="title-divider"></div>
+  <span class="section-label">ルームコード</span>
+  <div class="room-code-display" id="room-code-display">----</div>
+  <div class="waiting-text">
+    対戦相手の参加を待っています<span class="waiting-dots"><span>.</span><span>.</span><span>.</span></span>
+  </div>
+  <button class="back-btn" onclick="cancelCreateRoom()">キャンセル</button>
+</div>
+
+<!-- ===== Join Room Screen ===== -->
+<div id="join-room-screen" class="screen">
+  <div class="title-logo">
+    <h1>部屋に入る</h1>
+    <p class="subtitle">相手から教えてもらった<br>ルームコードを入力してください</p>
+  </div>
+  <div class="title-divider"></div>
+  <span class="section-label">ルームコード</span>
+  <input type="text" class="room-code-input" id="room-code-input" maxlength="4" placeholder="ABCD" autocomplete="off" spellcheck="false" inputmode="latin" autocapitalize="characters">
+  <div class="error-msg" id="join-error-msg"></div>
+  <button class="join-btn" id="btn-join-room" onclick="joinRoom()">参加する</button>
+  <button class="back-btn" onclick="showScreen('online-lobby-screen')">戻る</button>
+</div>
+
+<!-- ===== Online Setting Screen (after both join) ===== -->
+<div id="online-setting-screen" class="screen">
+  <div class="title-logo">
+    <h1>オンライン対戦</h1>
+    <p class="subtitle" id="online-setting-subtitle">サイコロの個数を選んでください</p>
+  </div>
+  <div class="title-divider"></div>
+  <!-- Host: dice count selection -->
+  <div id="online-host-setting">
+    <span class="section-label">サイコロの個数</span>
+    <div class="dice-count-cards" style="margin-top:12px;">
+      <div class="dice-count-card" id="online-dc-2" onclick="selectOnlineDiceCount(2)">
+        <span class="dc-icon">&#x1F3B2;&#x1F3B2;</span>
+        <span class="dc-name">2個</span>
+        <span class="dc-sub">カジュアル</span>
+      </div>
+      <div class="dice-count-card selected" id="online-dc-3" onclick="selectOnlineDiceCount(3)">
+        <span class="dc-icon">&#x1F3B2;&#x1F3B2;&#x1F3B2;</span>
+        <span class="dc-name">3個</span>
+        <span class="dc-sub">スタンダード</span>
+      </div>
+    </div>
+    <button class="join-btn" style="margin-top:20px;" onclick="confirmOnlineDiceCount()">この設定で開始</button>
+  </div>
+  <!-- Guest: waiting for host -->
+  <div id="online-guest-waiting" style="display:none;">
+    <div class="waiting-text">
+      ホストが設定中です<span class="waiting-dots"><span>.</span><span>.</span><span>.</span></span>
+    </div>
+  </div>
+  <button class="back-btn" onclick="leaveRoom()">退出する</button>
 </div>
 
 <!-- ===== Countdown Overlay ===== -->
@@ -806,9 +1521,9 @@ body {
 <!-- ===== Game Screen ===== -->
 <div id="game-screen">
 
-  <!-- CPU Area -->
+  <!-- Opponent Area -->
   <div class="player-area cpu" id="cpu-area">
-    <span class="player-label">CPU</span>
+    <span class="player-label" id="opponent-label">CPU</span>
     <div class="dice-row" id="cpu-dice"></div>
   </div>
 
@@ -819,7 +1534,7 @@ body {
   <div class="center-area">
     <div class="score-display">
       <div class="score-item cpu-score">
-        <span class="score-label">CPU</span>
+        <span class="score-label" id="opponent-score-label">CPU</span>
         <span class="score-value" id="cpu-score">0</span>
       </div>
       <div class="token-area">
@@ -839,6 +1554,9 @@ body {
     <div class="dice-row" id="player-dice"></div>
   </div>
 
+  <!-- Freeze Penalty Message -->
+  <div class="freeze-msg" id="freeze-msg" style="display:none;"></div>
+
   <!-- Controls -->
   <div class="controls">
     <button class="game-btn" id="btn-roll" disabled>
@@ -856,9 +1574,17 @@ body {
 <div id="result-overlay">
   <div class="result-text" id="result-text"></div>
   <div class="result-sub" id="result-sub"></div>
-  <div class="result-buttons">
+  <div class="result-buttons" id="result-buttons">
     <button class="result-btn" id="btn-retry">もう一度</button>
     <button class="result-btn" id="btn-back-title">タイトルへ</button>
+  </div>
+  <div class="rematch-wait" id="rematch-wait" style="display:none;">
+    <div class="rematch-wait-text">相手を待っています...</div>
+    <div class="rematch-wait-dots"><span>.</span><span>.</span><span>.</span></div>
+  </div>
+  <div class="opponent-left" id="opponent-left-msg" style="display:none;">
+    <div class="opponent-left-text">相手が退出しました</div>
+    <button class="result-btn" id="btn-left-back-title">タイトルへ</button>
   </div>
 </div>
 
@@ -902,6 +1628,7 @@ const CPU_PARAMS = {
 
 // ===== Game State =====
 let gameActive = false;
+let gameMode = 'cpu'; // 'cpu' or 'online'
 let difficulty = 'normal';
 let lastDifficulty = 'normal';
 let diceCount = 3;
@@ -916,13 +1643,17 @@ let playerIsRolling = false;
 
 let cpuTimers = { roll: null, claim: null };
 let cpuHasRolled = false;
+
+// Freeze penalty state (2-dice mode only)
+let freezeActive = false;
+let freezeRemainingRolls = 0;
+const FREEZE_ROLL_COUNT = 3;
 let cpuIsRolling = false;
 
 const WIN_SCORE = 2;
 const TOTAL_PIECES = 3;
 
 // ===== DOM References =====
-const $titleScreen = document.getElementById('title-screen');
 const $gameScreen = document.getElementById('game-screen');
 const $resultOverlay = document.getElementById('result-overlay');
 const $resultText = document.getElementById('result-text');
@@ -931,11 +1662,277 @@ const $logArea = document.getElementById('log-area');
 const $countdownOverlay = document.getElementById('countdown-overlay');
 const $countdownText = document.getElementById('countdown-text');
 const $cpuArea = document.getElementById('cpu-area');
+const $freezeMsg = document.getElementById('freeze-msg');
+
+// All screen elements
+const ALL_SCREENS = ['title-screen', 'cpu-setup-screen', 'online-lobby-screen', 'create-room-screen', 'join-room-screen', 'online-setting-screen'];
+
+function showScreen(screenId) {
+  ALL_SCREENS.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.toggle('active', id === screenId);
+  });
+  // Clear join error when navigating
+  var joinErr = document.getElementById('join-error-msg');
+  if (joinErr) joinErr.textContent = '';
+  var joinInput = document.getElementById('room-code-input');
+  if (joinInput && screenId !== 'join-room-screen') joinInput.value = '';
+  // Toggle scroll lock for game screen (mobile)
+  document.body.classList.toggle('game-active', screenId === 'game-screen');
+}
+
+// ===== Online Room State =====
+let currentRoomCode = null;
+let isHost = false;
+let roomListeners = [];
+let roomTimeoutTimer = null;
+let onlineDiceCount = 3;
+
+const ROOM_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const ROOM_TIMEOUT_MS = 5 * 60 * 1000;
+
+function generateRoomCode() {
+  var code = '';
+  for (var i = 0; i < 4; i++) {
+    code += ROOM_CODE_CHARS.charAt(Math.floor(Math.random() * ROOM_CODE_CHARS.length));
+  }
+  return code;
+}
+
+function cleanupRoom() {
+  roomListeners.forEach(function(unsub) { unsub(); });
+  roomListeners = [];
+  if (roomTimeoutTimer) {
+    clearTimeout(roomTimeoutTimer);
+    roomTimeoutTimer = null;
+  }
+}
+
+function createRoom() {
+  if (!myUid) {
+    alert('認証中です。少々お待ちください。');
+    return;
+  }
+
+  var code = generateRoomCode();
+  var roomRef = fbDB.ref('rooms/' + code);
+
+  roomRef.once('value').then(function(snap) {
+    if (snap.exists()) {
+      // Code collision, retry
+      createRoom();
+      return;
+    }
+
+    var roomData = {
+      hostUid: myUid,
+      guestUid: null,
+      status: 'waiting',
+      diceCount: 3,
+      createdAt: firebase.database.ServerValue.TIMESTAMP
+    };
+
+    return roomRef.set(roomData).then(function() {
+      currentRoomCode = code;
+      isHost = true;
+      document.getElementById('room-code-display').textContent = code;
+      showScreen('create-room-screen');
+
+      // Listen for guest joining
+      var guestRef = fbDB.ref('rooms/' + code + '/guestUid');
+      var guestCb = guestRef.on('value', function(snap) {
+        var guestUid = snap.val();
+        if (guestUid) {
+          // Guest joined - move to setting screen
+          fbDB.ref('rooms/' + code + '/status').set('setting');
+          showOnlineSettingScreen(true);
+        }
+      });
+      roomListeners.push(function() { guestRef.off('value', guestCb); });
+
+      // Listen for room deletion (e.g. timeout)
+      var roomCb = roomRef.on('value', function(snap) {
+        if (!snap.exists() && currentRoomCode === code) {
+          cleanupRoom();
+          currentRoomCode = null;
+          showScreen('online-lobby-screen');
+        }
+      });
+      roomListeners.push(function() { roomRef.off('value', roomCb); });
+
+      // Auto-delete after 5 min
+      roomTimeoutTimer = setTimeout(function() {
+        if (currentRoomCode === code) {
+          roomRef.remove();
+          cleanupRoom();
+          currentRoomCode = null;
+          showScreen('online-lobby-screen');
+        }
+      }, ROOM_TIMEOUT_MS);
+
+      // onDisconnect cleanup for host
+      roomRef.onDisconnect().remove();
+    });
+  }).catch(function(err) {
+    console.error('[Firebase] ルーム作成失敗:', err);
+    alert('ルーム作成に失敗しました');
+  });
+}
+
+function cancelCreateRoom() {
+  if (currentRoomCode) {
+    fbDB.ref('rooms/' + currentRoomCode).remove();
+    cleanupRoom();
+    currentRoomCode = null;
+  }
+  showScreen('online-lobby-screen');
+}
+
+function joinRoom() {
+  var input = document.getElementById('room-code-input');
+  var code = input.value.trim().toUpperCase();
+  var errEl = document.getElementById('join-error-msg');
+
+  if (code.length !== 4) {
+    errEl.textContent = '4文字のコードを入力してください';
+    return;
+  }
+
+  if (!myUid) {
+    errEl.textContent = '認証中です。少々お待ちください。';
+    return;
+  }
+
+  var roomRef = fbDB.ref('rooms/' + code);
+
+  roomRef.once('value').then(function(snap) {
+    if (!snap.exists()) {
+      errEl.textContent = 'この部屋は存在しません';
+      return;
+    }
+
+    var room = snap.val();
+
+    if (room.guestUid) {
+      errEl.textContent = 'この部屋は満員です';
+      return;
+    }
+
+    if (room.hostUid === myUid) {
+      errEl.textContent = '自分の部屋には参加できません';
+      return;
+    }
+
+    // Join the room
+    return roomRef.child('guestUid').set(myUid).then(function() {
+      currentRoomCode = code;
+      isHost = false;
+
+      // onDisconnect: remove guestUid
+      roomRef.child('guestUid').onDisconnect().remove();
+
+      // Listen for status changes (host sets settings, starts game, etc.)
+      var statusRef = fbDB.ref('rooms/' + code + '/status');
+      var statusCb = statusRef.on('value', function(snap) {
+        var status = snap.val();
+        if (status === 'setting') {
+          showOnlineSettingScreen(false);
+        }
+      });
+      roomListeners.push(function() { statusRef.off('value', statusCb); });
+
+      // Listen for room deletion
+      var roomCb = roomRef.on('value', function(snap) {
+        if (!snap.exists() && currentRoomCode === code) {
+          cleanupRoom();
+          currentRoomCode = null;
+          alert('部屋が閉じられました');
+          showScreen('online-lobby-screen');
+        }
+      });
+      roomListeners.push(function() { roomRef.off('value', roomCb); });
+
+      showOnlineSettingScreen(false);
+    });
+  }).catch(function(err) {
+    console.error('[Firebase] 入室失敗:', err);
+    errEl.textContent = '入室に失敗しました';
+  });
+}
+
+function leaveRoom() {
+  if (currentRoomCode) {
+    if (isHost) {
+      fbDB.ref('rooms/' + currentRoomCode).remove();
+    } else {
+      fbDB.ref('rooms/' + currentRoomCode + '/guestUid').remove();
+      fbDB.ref('rooms/' + currentRoomCode + '/status').set('waiting');
+    }
+    cleanupRoom();
+    currentRoomCode = null;
+  }
+  showScreen('online-lobby-screen');
+}
+
+function showOnlineSettingScreen(asHost) {
+  showScreen('online-setting-screen');
+  var hostEl = document.getElementById('online-host-setting');
+  var guestEl = document.getElementById('online-guest-waiting');
+  var subtitleEl = document.getElementById('online-setting-subtitle');
+
+  if (asHost) {
+    hostEl.style.display = '';
+    guestEl.style.display = 'none';
+    subtitleEl.textContent = 'サイコロの個数を選んでください';
+  } else {
+    hostEl.style.display = 'none';
+    guestEl.style.display = '';
+    subtitleEl.textContent = 'ホストが設定中です';
+
+    // Guest listens for status change to start game
+    if (currentRoomCode) {
+      var statusRef = fbDB.ref('rooms/' + currentRoomCode + '/status');
+      var statusCb = statusRef.on('value', function(snap) {
+        var status = snap.val();
+        if (status === 'countdown') {
+          // Read diceCount then start
+          fbDB.ref('rooms/' + currentRoomCode + '/diceCount').once('value').then(function(dcSnap) {
+            var dc = dcSnap.val() || 3;
+            initOnlineGame(dc);
+          });
+        }
+      });
+      roomListeners.push(function() { statusRef.off('value', statusCb); });
+    }
+  }
+}
+
+function selectOnlineDiceCount(count) {
+  onlineDiceCount = count;
+  document.getElementById('online-dc-2').classList.toggle('selected', count === 2);
+  document.getElementById('online-dc-3').classList.toggle('selected', count === 3);
+}
+
+function confirmOnlineDiceCount() {
+  if (!currentRoomCode) return;
+  // Save dice count and start countdown
+  var roomRef = fbDB.ref('rooms/' + currentRoomCode);
+  roomRef.update({
+    diceCount: onlineDiceCount,
+    status: 'countdown'
+  }).then(function() {
+    initOnlineGame(onlineDiceCount);
+  });
+}
 
 const $btnRoll = document.getElementById('btn-roll');
 const $btnClaim = document.getElementById('btn-claim');
 const $btnRetry = document.getElementById('btn-retry');
 const $btnBackTitle = document.getElementById('btn-back-title');
+const $resultButtons = document.getElementById('result-buttons');
+const $rematchWait = document.getElementById('rematch-wait');
+const $opponentLeftMsg = document.getElementById('opponent-left-msg');
+const $btnLeftBackTitle = document.getElementById('btn-left-back-title');
 
 const $playerScore = document.getElementById('player-score');
 const $cpuScore = document.getElementById('cpu-score');
@@ -1049,7 +2046,10 @@ function renderAllDice() {
 function renderScores() {
   $playerScore.textContent = playerScore;
   $cpuScore.textContent = cpuScore;
-  piecesRemaining = TOTAL_PIECES - playerScore - cpuScore;
+  // In online mode, piecesRemaining is set by Firebase listener
+  if (gameMode !== 'online') {
+    piecesRemaining = TOTAL_PIECES - playerScore - cpuScore;
+  }
   renderTokens();
 }
 
@@ -1108,14 +2108,59 @@ function startRollingAnimation(prefix, duration, callback) {
   }, duration);
 }
 
+// ===== Freeze Penalty (2-dice mode) =====
+function startFreeze() {
+  freezeActive = true;
+  freezeRemainingRolls = FREEZE_ROLL_COUNT;
+  $btnRoll.disabled = true;
+  $btnClaim.disabled = true;
+  updateFreezeDisplay();
+}
+
+function updateFreezeDisplay() {
+  $freezeMsg.textContent = 'ペナルティ中... 相手があと' + freezeRemainingRolls + '回振るまで待機';
+  $freezeMsg.style.display = 'block';
+}
+
+function decrementFreeze() {
+  if (!freezeActive) return;
+  freezeRemainingRolls--;
+  if (freezeRemainingRolls <= 0) {
+    endFreeze();
+  } else {
+    updateFreezeDisplay();
+  }
+}
+
+function endFreeze() {
+  freezeActive = false;
+  freezeRemainingRolls = 0;
+  $freezeMsg.style.display = 'none';
+  if (gameActive) {
+    $btnRoll.disabled = false;
+    $btnClaim.disabled = true;
+  }
+}
+
+function clearFreeze() {
+  freezeActive = false;
+  freezeRemainingRolls = 0;
+  $freezeMsg.style.display = 'none';
+}
+
 // ===== Player Actions =====
 function playerRoll() {
-  if (!gameActive || playerIsRolling) return;
+  if (!gameActive || playerIsRolling || freezeActive) return;
 
   playerIsRolling = true;
   playerHasRolled = false;
   $btnRoll.disabled = true;
   $btnClaim.disabled = true;
+
+  // Notify online opponent that we are rolling
+  if (gameMode === 'online' && currentRoomCode) {
+    fbDB.ref('rooms/' + currentRoomCode + '/players/' + myUid + '/rolling').set(true);
+  }
 
   startRollingAnimation('player', 250, function() {
     playerDice = rollNewDice();
@@ -1125,11 +2170,23 @@ function playerRoll() {
     $btnRoll.disabled = false;
     $btnClaim.disabled = false;
     clearLog();
+
+    // Write dice to Firebase for opponent to see
+    if (gameMode === 'online' && currentRoomCode) {
+      fbDB.ref('rooms/' + currentRoomCode + '/players/' + myUid).update({
+        dice: playerDice,
+        rolling: false
+      });
+    }
   });
 }
 
 function playerClaim() {
-  if (!gameActive || !playerHasRolled || playerIsRolling) return;
+  if (!gameActive || !playerHasRolled || playerIsRolling || freezeActive) return;
+  if (gameMode === 'online') {
+    onlineClaim();
+    return;
+  }
 
   if (isAllSame(playerDice)) {
     if (piecesRemaining > 0) {
@@ -1157,8 +2214,143 @@ function playerClaim() {
     } else {
       showFloatText('Miss!', 'minus', rect.left + rect.width / 2 - 25, rect.top - 30);
       setLog('ぞろ目じゃない！', 'fail');
+      // 2-dice mode: freeze penalty when score is 0
+      if (diceCount === 2) {
+        playerHasRolled = false;
+        playerDice = makeEmptyDice();
+        renderAllDice();
+        startFreeze();
+      }
     }
   }
+}
+
+// ===== Online Claim =====
+function onlineClaim() {
+  if (!gameActive || !playerHasRolled || playerIsRolling || freezeActive) return;
+  if (!currentRoomCode) return;
+
+  var claimedDice = playerDice.slice();
+  var isZorome = isAllSame(claimedDice);
+  var preScore = playerScore;
+
+  // Disable claim immediately to prevent double-click
+  $btnClaim.disabled = true;
+  playerHasRolled = false;
+
+  var gameStateRef = fbDB.ref('rooms/' + currentRoomCode + '/gameState');
+
+  gameStateRef.transaction(function(state) {
+    if (!state) return state;
+
+    if (isZorome) {
+      if (state.piecesRemaining > 0) {
+        state.scores[myUid] = (state.scores[myUid] || 0) + 1;
+        state.piecesRemaining--;
+      }
+    } else {
+      if ((state.scores[myUid] || 0) > 0) {
+        state.scores[myUid]--;
+        state.piecesRemaining++;
+      }
+    }
+
+    state.lastClaim = {
+      uid: myUid,
+      isZorome: isZorome,
+      count: (state.lastClaim ? state.lastClaim.count || 0 : 0) + 1
+    };
+
+    return state;
+  }).then(function(result) {
+    if (result.committed) {
+      var rect = $btnClaim.getBoundingClientRect();
+      if (isZorome) {
+        showFlash('success');
+        showFloatText('+1', 'plus', rect.left + rect.width / 2 - 15, rect.top - 30);
+        setLog('駒を獲得！', 'success');
+      } else {
+        showFlash('fail');
+        if (preScore > 0) {
+          showFloatText('-1', 'minus', rect.left + rect.width / 2 - 15, rect.top - 30);
+          setLog('ぞろ目じゃない！駒を1つ返却…', 'fail');
+        } else {
+          showFloatText('Miss!', 'minus', rect.left + rect.width / 2 - 25, rect.top - 30);
+          setLog('ぞろ目じゃない！', 'fail');
+          // 2-dice mode: freeze penalty when score is 0
+          if (diceCount === 2) {
+            startFreeze();
+          }
+        }
+      }
+
+      // Clear dice locally and in Firebase
+      playerDice = makeEmptyDice();
+      renderAllDice();
+      fbDB.ref('rooms/' + currentRoomCode + '/players/' + myUid).update({
+        dice: makeEmptyDice(),
+        rolling: false
+      });
+    }
+  }).catch(function(err) {
+    console.error('[Online] Claim transaction failed:', err);
+    // Re-enable claim on error so player can retry
+    $btnClaim.disabled = false;
+    playerHasRolled = true;
+  });
+}
+
+// ===== Online Game State Listener =====
+function setupGameStateListener() {
+  if (!currentRoomCode) return;
+
+  var lastClaimCount = null;
+  var gsRef = fbDB.ref('rooms/' + currentRoomCode + '/gameState');
+
+  var gsCb = gsRef.on('value', function(snap) {
+    var state = snap.val();
+    if (!state || !state.scores) return;
+
+    var myScore = state.scores[myUid] || 0;
+    var oppScore = state.scores[opponentUid] || 0;
+
+    playerScore = myScore;
+    cpuScore = oppScore;
+    piecesRemaining = state.piecesRemaining;
+    renderScores();
+
+    // Detect new claims
+    if (lastClaimCount === null) {
+      // First event: just initialize the counter, no effects
+      lastClaimCount = state.lastClaim ? state.lastClaim.count || 0 : 0;
+    } else if (state.lastClaim && state.lastClaim.count > lastClaimCount) {
+      lastClaimCount = state.lastClaim.count;
+
+      // Show opponent claim effects
+      if (state.lastClaim.uid === opponentUid) {
+        $cpuArea.classList.remove('claiming');
+        void $cpuArea.offsetWidth;
+        $cpuArea.classList.add('claiming');
+
+        if (state.lastClaim.isZorome) {
+          showFlash('cpu-claim');
+          setLog('相手が駒を獲得！', 'fail');
+        } else {
+          setLog('相手が誤申告！駒を1つ返却', 'success');
+        }
+      }
+    }
+
+    // Check win condition
+    if (!gameActive) return;
+    if (myScore >= WIN_SCORE) {
+      endGame('player');
+    } else if (oppScore >= WIN_SCORE) {
+      endGame('cpu');
+    }
+  });
+
+  onlineGameListeners.push(function() { gsRef.off('value', gsCb); });
 }
 
 // ===== CPU Logic =====
@@ -1187,6 +2379,11 @@ function cpuRoll() {
     cpuHasRolled = true;
     cpuIsRolling = false;
     renderAllDice();
+
+    // Decrement freeze counter if player is frozen
+    if (freezeActive) {
+      decrementFreeze();
+    }
 
     var params = CPU_PARAMS[difficulty];
     var gotTriple = isAllSame(cpuDice);
@@ -1262,11 +2459,24 @@ function endGame(winner) {
   gameActive = false;
   clearTimeout(cpuTimers.roll);
   clearTimeout(cpuTimers.claim);
+  clearFreeze();
 
   $btnRoll.disabled = true;
   $btnClaim.disabled = true;
 
+  // Write winner to Firebase so both players see the result
+  if (gameMode === 'online' && currentRoomCode && isHost) {
+    fbDB.ref('rooms/' + currentRoomCode + '/status').set('finished');
+  }
+
+  var loseLabel = gameMode === 'online' ? '相手の勝利です' : 'CPUの勝利です';
+
   setTimeout(function() {
+    // Reset result overlay to default state
+    $resultButtons.style.display = 'flex';
+    $rematchWait.style.display = 'none';
+    $opponentLeftMsg.style.display = 'none';
+
     $resultOverlay.style.display = 'flex';
     if (winner === 'player') {
       $resultText.textContent = 'YOU WIN!';
@@ -1275,8 +2485,10 @@ function endGame(winner) {
     } else {
       $resultText.textContent = 'YOU LOSE...';
       $resultText.className = 'result-text lose';
-      $resultSub.textContent = 'CPUの勝利です';
+      $resultSub.textContent = loseLabel;
     }
+
+    // In-game disconnect listener is still active and handles result screen too
   }, 600);
 }
 
@@ -1307,6 +2519,7 @@ function showCountdown(callback) {
 function initGame(diff) {
   difficulty = diff;
   lastDifficulty = diff;
+  clearFreeze();
 
   // Build dice DOM for selected count
   buildDiceDOM();
@@ -1326,8 +2539,13 @@ function initGame(diff) {
   renderScores();
   clearLog();
 
-  $titleScreen.style.display = 'none';
+  // Hide all screens, show game
+  ALL_SCREENS.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
   $gameScreen.style.display = 'flex';
+  document.body.classList.add('game-active');
   $resultOverlay.style.display = 'none';
 
   $btnRoll.disabled = true;
@@ -1342,9 +2560,15 @@ function initGame(diff) {
 }
 
 function retryGame() {
+  if (gameMode === 'online') {
+    onlineRematch();
+    return;
+  }
+
   $resultOverlay.style.display = 'none';
   clearTimeout(cpuTimers.roll);
   clearTimeout(cpuTimers.claim);
+  clearFreeze();
 
   buildDiceDOM();
   playerDice = makeEmptyDice();
@@ -1372,26 +2596,453 @@ function retryGame() {
   });
 }
 
+// ===== Online Game =====
+let onlineGameListeners = [];
+let opponentUid = null;
+
+function cleanupOnlineGameListeners() {
+  onlineGameListeners.forEach(function(unsub) { unsub(); });
+  onlineGameListeners = [];
+}
+
+function initOnlineGame(dc) {
+  gameMode = 'online';
+  diceCount = dc;
+  clearFreeze();
+
+  // Clean up lobby-phase listeners to prevent stale status listener
+  // from re-triggering initOnlineGame during rematch
+  cleanupRoom();
+
+  // Determine opponent UID
+  var roomRef = fbDB.ref('rooms/' + currentRoomCode);
+  roomRef.once('value').then(function(snap) {
+    var room = snap.val();
+    if (!room) return;
+    opponentUid = isHost ? room.guestUid : room.hostUid;
+
+    // Set labels
+    document.getElementById('opponent-label').textContent = '相手';
+    document.getElementById('opponent-score-label').textContent = '相手';
+
+    // Build dice DOM for selected count
+    buildDiceDOM();
+
+    // Reset state
+    playerDice = makeEmptyDice();
+    cpuDice = makeEmptyDice();
+    playerScore = 0;
+    cpuScore = 0;
+    piecesRemaining = TOTAL_PIECES;
+    playerHasRolled = false;
+    playerIsRolling = false;
+
+    renderAllDice();
+    renderScores();
+    clearLog();
+
+    // Hide all screens, show game
+    ALL_SCREENS.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.remove('active');
+    });
+    $gameScreen.style.display = 'flex';
+    document.body.classList.add('game-active');
+    $resultOverlay.style.display = 'none';
+
+    $btnRoll.disabled = true;
+    $btnClaim.disabled = true;
+
+    // Initialize player data in Firebase
+    fbDB.ref('rooms/' + currentRoomCode + '/players/' + myUid).set({
+      dice: makeEmptyDice(),
+      rolling: false
+    });
+
+    // Host initializes shared game state
+    if (isHost) {
+      var initScores = {};
+      initScores[myUid] = 0;
+      initScores[opponentUid] = 0;
+      fbDB.ref('rooms/' + currentRoomCode + '/gameState').set({
+        scores: initScores,
+        piecesRemaining: TOTAL_PIECES,
+        lastClaim: null
+      });
+    }
+
+    // Listen for opponent's dice
+    setupOpponentDiceListener();
+
+    // Listen for game state changes (scores, claims, win)
+    setupGameStateListener();
+
+    // Listen for opponent disconnect during game
+    setupInGameDisconnectListener();
+
+    // Re-setup onDisconnect for game phase
+    if (isHost) {
+      fbDB.ref('rooms/' + currentRoomCode).onDisconnect().remove();
+    } else {
+      fbDB.ref('rooms/' + currentRoomCode + '/guestUid').onDisconnect().remove();
+    }
+
+    // Set status to playing after countdown
+    showCountdown(function() {
+      gameActive = true;
+      $btnRoll.disabled = false;
+      $btnClaim.disabled = true;
+      if (isHost) {
+        fbDB.ref('rooms/' + currentRoomCode + '/status').set('playing');
+      }
+    });
+  });
+}
+
+function setupInGameDisconnectListener() {
+  if (!currentRoomCode) return;
+
+  var roomRef = fbDB.ref('rooms/' + currentRoomCode);
+  var dcCb = roomRef.on('value', function(snap) {
+    var room = snap.val();
+
+    if (!room) {
+      // Room deleted (host disconnected)
+      roomRef.off('value', dcCb);
+      handleOpponentDisconnect();
+      return;
+    }
+
+    // Check if opponent left
+    var opponentStillHere = isHost ? room.guestUid : room.hostUid;
+    if (!opponentStillHere) {
+      roomRef.off('value', dcCb);
+      handleOpponentDisconnect();
+    }
+  });
+
+  onlineGameListeners.push(function() {
+    roomRef.off('value', dcCb);
+  });
+}
+
+function handleOpponentDisconnect() {
+  if (!gameActive && $resultOverlay.style.display === 'flex') {
+    // Already on result screen - show opponent left message
+    showOpponentLeft();
+    return;
+  }
+
+  // Game was in progress - stop game and show disconnect message
+  gameActive = false;
+  clearFreeze();
+  $btnRoll.disabled = true;
+  $btnClaim.disabled = true;
+
+  setLog('相手が切断しました', 'fail');
+
+  // Show result overlay with disconnect message
+  setTimeout(function() {
+    $resultButtons.style.display = 'none';
+    $rematchWait.style.display = 'none';
+    $opponentLeftMsg.style.display = 'block';
+
+    $resultOverlay.style.display = 'flex';
+    $resultText.textContent = '中断';
+    $resultText.className = 'result-text lose';
+    $resultSub.textContent = '相手が切断しました';
+  }, 400);
+}
+
+function setupOpponentDiceListener() {
+  if (!currentRoomCode || !opponentUid) return;
+
+  var opRef = fbDB.ref('rooms/' + currentRoomCode + '/players/' + opponentUid);
+  var opRollingAnim = null;
+
+  var opCb = opRef.on('value', function(snap) {
+    var data = snap.val();
+    if (!data) return;
+
+    if (data.rolling) {
+      // Show rolling animation for opponent
+      if (!opRollingAnim) {
+        var dieEls = [];
+        for (var d = 0; d < diceCount; d++) {
+          var el = document.getElementById('cpu-die-' + d);
+          if (el) {
+            el.classList.remove('empty');
+            el.classList.add('rolling');
+            dieEls.push(el);
+          }
+        }
+        opRollingAnim = setInterval(function() {
+          for (var i = 0; i < dieEls.length; i++) {
+            var rv = randInt(1, 6);
+            var pattern = DOT_PATTERNS[rv];
+            var html = '';
+            for (var p = 1; p <= 9; p++) {
+              html += '<div class="dot ' + (pattern.includes(p) ? 'visible' : '') + '" data-pos="' + p + '"></div>';
+            }
+            dieEls[i].innerHTML = html;
+          }
+        }, 50);
+      }
+    } else {
+      // Stop rolling animation
+      if (opRollingAnim) {
+        clearInterval(opRollingAnim);
+        opRollingAnim = null;
+        for (var d = 0; d < diceCount; d++) {
+          var el = document.getElementById('cpu-die-' + d);
+          if (el) el.classList.remove('rolling');
+        }
+        // Opponent completed a roll - decrement freeze counter
+        if (freezeActive) {
+          decrementFreeze();
+        }
+      }
+
+      // Show opponent's dice
+      if (data.dice) {
+        cpuDice = data.dice;
+        for (var i = 0; i < diceCount; i++) {
+          renderDie('cpu-die-' + i, cpuDice[i]);
+        }
+      }
+    }
+  });
+
+  onlineGameListeners.push(function() {
+    opRef.off('value', opCb);
+    if (opRollingAnim) {
+      clearInterval(opRollingAnim);
+      opRollingAnim = null;
+    }
+  });
+}
+
+// ===== Online Rematch =====
+let rematchListener = null;
+
+function onlineRematch() {
+  if (!currentRoomCode || !myUid) return;
+
+  // Write my ready flag
+  fbDB.ref('rooms/' + currentRoomCode + '/rematch/' + myUid).set(true);
+
+  // Switch UI to waiting state
+  $resultButtons.style.display = 'none';
+  $rematchWait.style.display = 'block';
+  $opponentLeftMsg.style.display = 'none';
+
+  // Listen for both players to be ready
+  var rematchRef = fbDB.ref('rooms/' + currentRoomCode + '/rematch');
+  rematchListener = rematchRef.on('value', function(snap) {
+    var data = snap.val();
+    if (!data) return;
+
+    // Check if both players are ready
+    if (data[myUid] && data[opponentUid]) {
+      // Stop listening
+      rematchRef.off('value', rematchListener);
+      rematchListener = null;
+
+      // Start rematch
+      startRematchRound();
+    }
+  });
+  // In-game disconnect listener is still active from the game phase
+}
+
+function startRematchRound() {
+  if (!currentRoomCode) return;
+  clearFreeze();
+
+  // Clean up old game listeners to prevent double registration
+  cleanupOnlineGameListeners();
+
+  // Reset UI
+  $resultOverlay.style.display = 'none';
+  $resultButtons.style.display = 'flex';
+  $rematchWait.style.display = 'none';
+  $opponentLeftMsg.style.display = 'none';
+
+  // Reset local state
+  playerDice = makeEmptyDice();
+  cpuDice = makeEmptyDice();
+  playerScore = 0;
+  cpuScore = 0;
+  piecesRemaining = TOTAL_PIECES;
+  playerHasRolled = false;
+  playerIsRolling = false;
+
+  buildDiceDOM();
+  renderAllDice();
+  renderScores();
+  clearLog();
+
+  $btnRoll.disabled = true;
+  $btnClaim.disabled = true;
+
+  // Reset Firebase data (host only)
+  if (isHost) {
+    var initScores = {};
+    initScores[myUid] = 0;
+    initScores[opponentUid] = 0;
+
+    var updates = {};
+    updates['rematch'] = null;
+    updates['gameState'] = {
+      scores: initScores,
+      piecesRemaining: TOTAL_PIECES,
+      lastClaim: null
+    };
+    updates['players/' + myUid] = { dice: makeEmptyDice(), rolling: false };
+    updates['status'] = 'countdown';
+
+    fbDB.ref('rooms/' + currentRoomCode).update(updates);
+  } else {
+    // Guest resets own player data
+    fbDB.ref('rooms/' + currentRoomCode + '/players/' + myUid).set({
+      dice: makeEmptyDice(),
+      rolling: false
+    });
+  }
+
+  // Re-setup listeners
+  setupOpponentDiceListener();
+  setupGameStateListener();
+  setupInGameDisconnectListener();
+
+  // Countdown and start
+  showCountdown(function() {
+    gameActive = true;
+    $btnRoll.disabled = false;
+    $btnClaim.disabled = true;
+    if (isHost) {
+      fbDB.ref('rooms/' + currentRoomCode + '/status').set('playing');
+    }
+  });
+}
+
+function showOpponentLeft() {
+  // Clean up rematch listener
+  if (rematchListener && currentRoomCode) {
+    fbDB.ref('rooms/' + currentRoomCode + '/rematch').off('value', rematchListener);
+    rematchListener = null;
+  }
+
+  // Show opponent left message
+  $resultButtons.style.display = 'none';
+  $rematchWait.style.display = 'none';
+  $opponentLeftMsg.style.display = 'block';
+}
+
 function backToTitle() {
   gameActive = false;
   clearTimeout(cpuTimers.roll);
   clearTimeout(cpuTimers.claim);
 
+  if (gameMode === 'online') {
+    // Clean up rematch listener
+    if (rematchListener && currentRoomCode) {
+      fbDB.ref('rooms/' + currentRoomCode + '/rematch').off('value', rematchListener);
+      rematchListener = null;
+    }
+
+    cleanupOnlineGameListeners();
+
+    if (currentRoomCode) {
+      // Cancel onDisconnect before manual cleanup
+      if (isHost) {
+        fbDB.ref('rooms/' + currentRoomCode).onDisconnect().cancel();
+        fbDB.ref('rooms/' + currentRoomCode).remove();
+      } else {
+        fbDB.ref('rooms/' + currentRoomCode + '/guestUid').onDisconnect().cancel();
+        fbDB.ref('rooms/' + currentRoomCode + '/guestUid').remove();
+        fbDB.ref('rooms/' + currentRoomCode + '/players/' + myUid).remove();
+        fbDB.ref('rooms/' + currentRoomCode + '/rematch/' + myUid).remove();
+      }
+      cleanupRoom();
+      currentRoomCode = null;
+    }
+  }
+  gameMode = 'cpu';
+  // Reset labels back to CPU
+  document.getElementById('opponent-label').textContent = 'CPU';
+  document.getElementById('opponent-score-label').textContent = 'CPU';
+
+  // Reset result overlay state
+  $resultButtons.style.display = 'flex';
+  $rematchWait.style.display = 'none';
+  $opponentLeftMsg.style.display = 'none';
+
   $gameScreen.style.display = 'none';
+  document.body.classList.remove('game-active');
   $resultOverlay.style.display = 'none';
-  $titleScreen.style.display = 'flex';
+  showScreen('title-screen');
 }
+
+// ===== Room Code Input Sanitization =====
+(function() {
+  var rcInput = document.getElementById('room-code-input');
+  if (!rcInput) return;
+
+  // Block IME composition
+  var isComposing = false;
+  rcInput.addEventListener('compositionstart', function() { isComposing = true; });
+  rcInput.addEventListener('compositionend', function() {
+    isComposing = false;
+    // Clean up any IME input that got through
+    rcInput.value = rcInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 4);
+  });
+
+  // Filter input to uppercase alphanumeric only
+  rcInput.addEventListener('input', function() {
+    if (isComposing) return;
+    var cleaned = rcInput.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 4);
+    if (rcInput.value !== cleaned) {
+      rcInput.value = cleaned;
+    }
+  });
+
+  // Prevent non-alphanumeric key presses
+  rcInput.addEventListener('keydown', function(e) {
+    // Allow control keys
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'Enter'].indexOf(e.key) !== -1) return;
+    // Block if already 4 chars (unless selection exists)
+    if (rcInput.value.length >= 4 && rcInput.selectionStart === rcInput.selectionEnd) {
+      e.preventDefault();
+      return;
+    }
+    // Only allow A-Z, a-z, 0-9
+    if (!/^[A-Za-z0-9]$/.test(e.key)) {
+      e.preventDefault();
+    }
+  });
+
+  // Block paste of invalid characters
+  rcInput.addEventListener('paste', function(e) {
+    e.preventDefault();
+    var text = (e.clipboardData || window.clipboardData).getData('text');
+    var cleaned = text.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 4 - rcInput.value.length);
+    document.execCommand('insertText', false, cleaned);
+  });
+})();
 
 // ===== Controls =====
 $btnRoll.addEventListener('click', playerRoll);
 $btnClaim.addEventListener('click', playerClaim);
 $btnRetry.addEventListener('click', retryGame);
 $btnBackTitle.addEventListener('click', backToTitle);
+$btnLeftBackTitle.addEventListener('click', backToTitle);
 
 document.addEventListener('keydown', function(e) {
-  // Allow Enter on result screen for retry
+  // Allow Enter on result screen for retry (only when buttons are visible)
   if ($resultOverlay.style.display === 'flex') {
-    if (e.code === 'Enter') {
+    if (e.code === 'Enter' && $resultButtons.style.display !== 'none') {
       e.preventDefault();
       retryGame();
     }
@@ -1450,6 +3101,19 @@ fbAuth.signInAnonymously()
   .catch(function(error) {
     console.error('[Firebase] 匿名認証失敗:', error.code, error.message);
   });
+
+// ===== Service Worker Registration =====
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js')
+      .then(function(reg) {
+        console.log('[SW] 登録成功:', reg.scope);
+      })
+      .catch(function(err) {
+        console.log('[SW] 登録失敗:', err);
+      });
+  });
+}
 </script>
 
 </body>
