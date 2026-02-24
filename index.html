@@ -44,19 +44,7 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ===== Title Screen ===== */
-#title-screen {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  min-height: 100dvh;
-  gap: 32px;
-  padding: 24px;
-  width: 100%;
-  max-width: 480px;
-}
+/* ===== Title Screen (now uses .screen base) ===== */
 
 .title-logo {
   text-align: center;
@@ -713,6 +701,239 @@ body {
   100% { box-shadow: none; }
 }
 
+/* ===== Online Screens ===== */
+.screen {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  gap: 28px;
+  padding: 24px;
+  width: 100%;
+  max-width: 480px;
+}
+
+.screen.active { display: flex; }
+
+/* Mode selection cards */
+.mode-cards {
+  display: flex;
+  gap: 14px;
+  width: 100%;
+}
+
+.mode-card {
+  flex: 1;
+  background: var(--bg-card);
+  border: 2px solid rgba(255,255,255,0.06);
+  border-radius: 18px;
+  padding: 28px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.25s;
+  position: relative;
+  overflow: hidden;
+}
+
+.mode-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 18px 18px 0 0;
+}
+
+.mode-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255,255,255,0.12);
+}
+
+.mode-card:active { transform: translateY(0) scale(0.97); }
+
+.mode-card .mode-icon { font-size: 2rem; line-height: 1; }
+.mode-card .mode-name { font-size: 1.05rem; font-weight: 800; }
+.mode-card .mode-sub { font-size: 0.7rem; color: var(--text-dim); }
+
+.mode-card.cpu::before { background: linear-gradient(90deg, var(--cyan), #3b82f6); }
+.mode-card.cpu .mode-name { color: var(--cyan); }
+.mode-card.cpu:hover { box-shadow: 0 8px 30px rgba(0, 229, 255, 0.15); border-color: var(--cyan-dim); }
+
+.mode-card.online::before { background: linear-gradient(90deg, var(--magenta), var(--orange)); }
+.mode-card.online .mode-name { color: var(--magenta); }
+.mode-card.online:hover { box-shadow: 0 8px 30px rgba(255, 45, 120, 0.15); border-color: var(--magenta-dim); }
+
+/* Back button */
+.back-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text-dim);
+  padding: 10px 28px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  letter-spacing: 0.03em;
+}
+
+.back-btn:hover {
+  border-color: rgba(255,255,255,0.25);
+  color: var(--text);
+}
+
+.back-btn:active { transform: scale(0.96); }
+
+/* Lobby cards */
+.lobby-cards {
+  display: flex;
+  gap: 14px;
+  width: 100%;
+}
+
+.lobby-card {
+  flex: 1;
+  background: var(--bg-card);
+  border: 2px solid rgba(255,255,255,0.06);
+  border-radius: 18px;
+  padding: 28px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.25s;
+  position: relative;
+  overflow: hidden;
+}
+
+.lobby-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 18px 18px 0 0;
+}
+
+.lobby-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255,255,255,0.12);
+}
+
+.lobby-card:active { transform: translateY(0) scale(0.97); }
+
+.lobby-card .lobby-icon { font-size: 2rem; line-height: 1; }
+.lobby-card .lobby-name { font-size: 1rem; font-weight: 800; }
+.lobby-card .lobby-sub { font-size: 0.7rem; color: var(--text-dim); }
+
+.lobby-card.create::before { background: linear-gradient(90deg, var(--gold), var(--orange)); }
+.lobby-card.create .lobby-name { color: var(--gold); }
+.lobby-card.create:hover { box-shadow: 0 8px 30px rgba(255, 215, 0, 0.15); border-color: var(--gold-dim); }
+
+.lobby-card.join::before { background: linear-gradient(90deg, var(--green), var(--cyan)); }
+.lobby-card.join .lobby-name { color: var(--green); }
+.lobby-card.join:hover { box-shadow: 0 8px 30px rgba(0, 255, 136, 0.15); border-color: rgba(0, 255, 136, 0.2); }
+
+/* Room code display */
+.room-code-display {
+  font-size: clamp(2.5rem, 10vw, 4rem);
+  font-weight: 900;
+  letter-spacing: 0.3em;
+  background: linear-gradient(135deg, var(--gold), var(--orange));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.3));
+  text-align: center;
+}
+
+.waiting-text {
+  color: var(--text-dim);
+  font-size: 0.95rem;
+  text-align: center;
+  line-height: 1.6;
+}
+
+@keyframes dotPulse {
+  0%, 20% { opacity: 0; }
+  50% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.waiting-dots span {
+  animation: dotPulse 1.4s infinite;
+}
+.waiting-dots span:nth-child(2) { animation-delay: 0.2s; }
+.waiting-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* Room code input */
+.room-code-input {
+  width: 200px;
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: 0.3em;
+  text-align: center;
+  text-transform: uppercase;
+  background: var(--bg-card);
+  border: 2px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  color: var(--text);
+  padding: 14px 10px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.25s;
+}
+
+.room-code-input:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 20px rgba(0, 255, 136, 0.15);
+}
+
+.room-code-input::placeholder {
+  color: rgba(255,255,255,0.15);
+  letter-spacing: 0.2em;
+}
+
+.join-btn {
+  background: linear-gradient(135deg, var(--green), #00cc6a);
+  color: var(--bg-deep);
+  border: none;
+  padding: 14px 48px;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  letter-spacing: 0.03em;
+}
+
+.join-btn:hover {
+  box-shadow: 0 6px 24px rgba(0, 255, 136, 0.3);
+  transform: translateY(-2px);
+}
+
+.join-btn:active { transform: translateY(0) scale(0.97); }
+
+.join-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.error-msg {
+  color: var(--red);
+  font-size: 0.85rem;
+  font-weight: 700;
+  min-height: 1.2em;
+  text-align: center;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 380px) {
   .die {
@@ -758,10 +979,32 @@ body {
 </head>
 <body>
 
-<!-- ===== Title Screen ===== -->
-<div id="title-screen">
+<!-- ===== Title Screen (Mode Selection) ===== -->
+<div id="title-screen" class="screen active">
   <div class="title-logo">
     <h1>サイコロぞろ目バトル</h1>
+    <p class="subtitle">サイコロでぞろ目を狙え！<br>先に駒を2つ取った方の勝ち</p>
+  </div>
+  <div class="title-divider"></div>
+  <span class="section-label">対戦モード</span>
+  <div class="mode-cards">
+    <div class="mode-card cpu" onclick="showScreen('cpu-setup-screen')">
+      <span class="mode-icon">&#x1F916;</span>
+      <span class="mode-name">CPU対戦</span>
+      <span class="mode-sub">ひとりで練習</span>
+    </div>
+    <div class="mode-card online" onclick="showScreen('online-lobby-screen')">
+      <span class="mode-icon">&#x1F310;</span>
+      <span class="mode-name">オンライン対戦</span>
+      <span class="mode-sub">友だちと対戦</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CPU Setup Screen ===== -->
+<div id="cpu-setup-screen" class="screen">
+  <div class="title-logo">
+    <h1>CPU対戦</h1>
     <p class="subtitle" id="title-subtitle">3つのサイコロでぞろ目を狙え！<br>先に駒を2つ取った方の勝ち</p>
   </div>
   <div class="title-divider"></div>
@@ -796,6 +1039,59 @@ body {
       <span class="diff-sub">つよい</span>
     </div>
   </div>
+  <button class="back-btn" onclick="showScreen('title-screen')">戻る</button>
+</div>
+
+<!-- ===== Online Lobby Screen ===== -->
+<div id="online-lobby-screen" class="screen">
+  <div class="title-logo">
+    <h1>オンライン対戦</h1>
+    <p class="subtitle">ルームコードを共有して<br>友だちと対戦しよう</p>
+  </div>
+  <div class="title-divider"></div>
+  <span class="section-label">ルーム</span>
+  <div class="lobby-cards">
+    <div class="lobby-card create" onclick="showScreen('create-room-screen')">
+      <span class="lobby-icon">&#x1F3E0;</span>
+      <span class="lobby-name">部屋を作る</span>
+      <span class="lobby-sub">コードを共有</span>
+    </div>
+    <div class="lobby-card join" onclick="showScreen('join-room-screen')">
+      <span class="lobby-icon">&#x1F6AA;</span>
+      <span class="lobby-name">部屋に入る</span>
+      <span class="lobby-sub">コードを入力</span>
+    </div>
+  </div>
+  <button class="back-btn" onclick="showScreen('title-screen')">戻る</button>
+</div>
+
+<!-- ===== Create Room Screen ===== -->
+<div id="create-room-screen" class="screen">
+  <div class="title-logo">
+    <h1>部屋を作成</h1>
+    <p class="subtitle">このコードを相手に伝えてください</p>
+  </div>
+  <div class="title-divider"></div>
+  <span class="section-label">ルームコード</span>
+  <div class="room-code-display" id="room-code-display">----</div>
+  <div class="waiting-text">
+    対戦相手の参加を待っています<span class="waiting-dots"><span>.</span><span>.</span><span>.</span></span>
+  </div>
+  <button class="back-btn" onclick="cancelCreateRoom()">キャンセル</button>
+</div>
+
+<!-- ===== Join Room Screen ===== -->
+<div id="join-room-screen" class="screen">
+  <div class="title-logo">
+    <h1>部屋に入る</h1>
+    <p class="subtitle">相手から教えてもらった<br>ルームコードを入力してください</p>
+  </div>
+  <div class="title-divider"></div>
+  <span class="section-label">ルームコード</span>
+  <input type="text" class="room-code-input" id="room-code-input" maxlength="4" placeholder="ABCD" autocomplete="off" spellcheck="false">
+  <div class="error-msg" id="join-error-msg"></div>
+  <button class="join-btn" id="btn-join-room" onclick="joinRoom()">参加する</button>
+  <button class="back-btn" onclick="showScreen('online-lobby-screen')">戻る</button>
 </div>
 
 <!-- ===== Countdown Overlay ===== -->
@@ -922,7 +1218,6 @@ const WIN_SCORE = 2;
 const TOTAL_PIECES = 3;
 
 // ===== DOM References =====
-const $titleScreen = document.getElementById('title-screen');
 const $gameScreen = document.getElementById('game-screen');
 const $resultOverlay = document.getElementById('result-overlay');
 const $resultText = document.getElementById('result-text');
@@ -931,6 +1226,38 @@ const $logArea = document.getElementById('log-area');
 const $countdownOverlay = document.getElementById('countdown-overlay');
 const $countdownText = document.getElementById('countdown-text');
 const $cpuArea = document.getElementById('cpu-area');
+
+// All screen elements
+const ALL_SCREENS = ['title-screen', 'cpu-setup-screen', 'online-lobby-screen', 'create-room-screen', 'join-room-screen'];
+
+function showScreen(screenId) {
+  ALL_SCREENS.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.toggle('active', id === screenId);
+  });
+  // Clear join error when navigating
+  var joinErr = document.getElementById('join-error-msg');
+  if (joinErr) joinErr.textContent = '';
+  var joinInput = document.getElementById('room-code-input');
+  if (joinInput && screenId !== 'join-room-screen') joinInput.value = '';
+}
+
+function cancelCreateRoom() {
+  showScreen('online-lobby-screen');
+}
+
+function joinRoom() {
+  var input = document.getElementById('room-code-input');
+  var code = input.value.trim().toUpperCase();
+  var errEl = document.getElementById('join-error-msg');
+
+  if (code.length !== 4) {
+    errEl.textContent = '4文字のコードを入力してください';
+    return;
+  }
+  // Actual Firebase join will be implemented in Step 3
+  errEl.textContent = '※ まだ接続機能は未実装です';
+}
 
 const $btnRoll = document.getElementById('btn-roll');
 const $btnClaim = document.getElementById('btn-claim');
@@ -1326,7 +1653,11 @@ function initGame(diff) {
   renderScores();
   clearLog();
 
-  $titleScreen.style.display = 'none';
+  // Hide all screens, show game
+  ALL_SCREENS.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
   $gameScreen.style.display = 'flex';
   $resultOverlay.style.display = 'none';
 
@@ -1379,7 +1710,7 @@ function backToTitle() {
 
   $gameScreen.style.display = 'none';
   $resultOverlay.style.display = 'none';
-  $titleScreen.style.display = 'flex';
+  showScreen('title-screen');
 }
 
 // ===== Controls =====
