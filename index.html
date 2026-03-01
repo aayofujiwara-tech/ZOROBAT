@@ -1391,7 +1391,7 @@ body {
       <span class="mode-name">CPU対戦</span>
       <span class="mode-sub">ひとりで練習</span>
     </div>
-    <div class="mode-card online" onclick="showScreen('online-lobby-screen')">
+    <div class="mode-card online" onclick="goOnlineMode()">
       <span class="mode-icon">&#x1F310;</span>
       <span class="mode-name">オンライン対戦</span>
       <span class="mode-sub">友だちと対戦</span>
@@ -1460,7 +1460,7 @@ body {
       <span class="lobby-sub">コードを入力</span>
     </div>
   </div>
-  <button class="back-btn" onclick="showScreen('title-screen')">戻る</button>
+  <button class="back-btn" onclick="fbDB.goOffline(); showScreen('title-screen')">戻る</button>
 </div>
 
 <!-- ===== Create Room Screen ===== -->
@@ -1694,6 +1694,11 @@ function showScreen(screenId) {
   document.body.classList.toggle('game-active', screenId === 'game-screen');
 }
 
+function goOnlineMode() {
+  fbDB.goOnline();
+  showScreen('online-lobby-screen');
+}
+
 // ===== Online Room State =====
 let currentRoomCode = null;
 let isHost = false;
@@ -1794,6 +1799,7 @@ function createRoom() {
 
 function cancelCreateRoom() {
   if (currentRoomCode) {
+    fbDB.ref('rooms/' + currentRoomCode).onDisconnect().cancel();
     fbDB.ref('rooms/' + currentRoomCode).remove();
     cleanupRoom();
     currentRoomCode = null;
@@ -1876,8 +1882,10 @@ function joinRoom() {
 function leaveRoom() {
   if (currentRoomCode) {
     if (isHost) {
+      fbDB.ref('rooms/' + currentRoomCode).onDisconnect().cancel();
       fbDB.ref('rooms/' + currentRoomCode).remove();
     } else {
+      fbDB.ref('rooms/' + currentRoomCode + '/guestUid').onDisconnect().cancel();
       fbDB.ref('rooms/' + currentRoomCode + '/guestUid').remove();
       fbDB.ref('rooms/' + currentRoomCode + '/status').set('waiting');
     }
@@ -3009,6 +3017,9 @@ function backToTitle() {
   $rematchWait.style.display = 'none';
   $opponentLeftMsg.style.display = 'none';
 
+  // Disconnect Firebase when returning to title (saves connection slots)
+  fbDB.goOffline();
+
   $gameScreen.style.display = 'none';
   document.body.classList.remove('game-active');
   $resultOverlay.style.display = 'none';
@@ -3129,6 +3140,8 @@ fbAuth.signInAnonymously()
   .then(function(result) {
     myUid = result.user.uid;
     console.log('[Firebase] 匿名認証成功 UID:', myUid);
+    // CPU対戦ではFirebase接続不要なので、認証完了後にオフラインにする
+    fbDB.goOffline();
   })
   .catch(function(error) {
     console.error('[Firebase] 匿名認証失敗:', error.code, error.message);
