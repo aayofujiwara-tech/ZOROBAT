@@ -728,6 +728,41 @@ body {
   margin-bottom: 16px;
 }
 
+/* ===== Connection Banner ===== */
+.connection-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 300;
+  text-align: center;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(255, 107, 53, 0.85);
+  backdrop-filter: blur(4px);
+  animation: bannerSlideIn 0.3s ease-out;
+  pointer-events: none;
+}
+
+@keyframes bannerSlideIn {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+
+#disconnected-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10, 10, 26, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 250;
+}
+
 /* ===== Effects ===== */
 .claim-flash {
   position: fixed;
@@ -1377,6 +1412,18 @@ body {
 </head>
 <body>
 
+<!-- ===== Connection Banner ===== -->
+<div id="connection-banner" class="connection-banner" style="display:none;">
+  <span id="connection-banner-text">再接続中...</span>
+</div>
+
+<!-- ===== Disconnected Overlay ===== -->
+<div id="disconnected-overlay" style="display:none;">
+  <div class="result-text lose">接続が切れました</div>
+  <div class="result-sub" id="disconnected-sub">ルームが見つかりません</div>
+  <button class="result-btn" id="btn-disconnected-title" style="margin-top:16px;">タイトルへ</button>
+</div>
+
 <!-- ===== Title Screen (Mode Selection) ===== -->
 <div id="title-screen" class="screen active">
   <div class="title-logo">
@@ -1694,9 +1741,31 @@ function showScreen(screenId) {
   document.body.classList.toggle('game-active', screenId === 'game-screen');
 }
 
+function ensureOnline(callback) {
+  var user = fbAuth.currentUser;
+  if (user && myUid) {
+    fbDB.goOnline();
+    if (callback) callback();
+  } else {
+    // Re-authenticate then go online
+    fbAuth.signInAnonymously()
+      .then(function(result) {
+        myUid = result.user.uid;
+        console.log('[Firebase] 再認証成功 UID:', myUid);
+        fbDB.goOnline();
+        if (callback) callback();
+      })
+      .catch(function(err) {
+        console.error('[Firebase] 再認証失敗:', err);
+        alert('サーバーに接続できません。通信環境をご確認ください。');
+      });
+  }
+}
+
 function goOnlineMode() {
-  fbDB.goOnline();
-  showScreen('online-lobby-screen');
+  ensureOnline(function() {
+    showScreen('online-lobby-screen');
+  });
 }
 
 // ===== Online Room State =====
@@ -3017,6 +3086,12 @@ function backToTitle() {
   $rematchWait.style.display = 'none';
   $opponentLeftMsg.style.display = 'none';
 
+  // Reset connection monitor state
+  wasConnected = false;
+  if (connBannerTimer) { clearTimeout(connBannerTimer); connBannerTimer = null; }
+  $connBanner.style.display = 'none';
+  $disconnectedOverlay.style.display = 'none';
+
   // Disconnect Firebase when returning to title (saves connection slots)
   fbDB.goOffline();
 
@@ -3146,6 +3221,78 @@ fbAuth.signInAnonymously()
   .catch(function(error) {
     console.error('[Firebase] 匿名認証失敗:', error.code, error.message);
   });
+
+// ===== Connection Monitor =====
+var $connBanner = document.getElementById('connection-banner');
+var $connBannerText = document.getElementById('connection-banner-text');
+var $disconnectedOverlay = document.getElementById('disconnected-overlay');
+var $disconnectedSub = document.getElementById('disconnected-sub');
+document.getElementById('btn-disconnected-title').addEventListener('click', function() {
+  $disconnectedOverlay.style.display = 'none';
+  backToTitle();
+});
+
+var connectedRef = fbDB.ref('.info/connected');
+var wasConnected = false;
+var connBannerTimer = null;
+
+function resetOnDisconnect() {
+  if (!currentRoomCode) return;
+  if (isHost) {
+    fbDB.ref('rooms/' + currentRoomCode).onDisconnect().remove();
+  } else {
+    fbDB.ref('rooms/' + currentRoomCode + '/guestUid').onDisconnect().remove();
+  }
+}
+
+connectedRef.on('value', function(snap) {
+  // Skip when offline by design (CPU mode / title screen)
+  if (gameMode !== 'online') return;
+
+  var connected = snap.val() === true;
+
+  if (connected) {
+    // Connected (or reconnected)
+    if (connBannerTimer) { clearTimeout(connBannerTimer); connBannerTimer = null; }
+    $connBanner.style.display = 'none';
+
+    if (wasConnected) {
+      // This is a REconnection — verify room still exists and re-setup onDisconnect
+      console.log('[Firebase] 再接続検知');
+      resetOnDisconnect();
+
+      if (currentRoomCode) {
+        fbDB.ref('rooms/' + currentRoomCode).once('value').then(function(roomSnap) {
+          if (!roomSnap.exists()) {
+            // Room is gone
+            console.log('[Firebase] ルーム消失を検知');
+            $disconnectedSub.textContent = 'ルームが見つかりません';
+            $disconnectedOverlay.style.display = 'flex';
+          }
+          // If room exists, Firebase auto-resync handles everything
+        });
+      }
+    }
+
+    wasConnected = true;
+  } else {
+    // Disconnected
+    if (!wasConnected) return; // Initial false from goOnline, ignore
+    console.log('[Firebase] 接続切断検知');
+
+    // Show banner after a short delay (avoid flicker on instant reconnect)
+    if (!connBannerTimer) {
+      connBannerTimer = setTimeout(function() {
+        connBannerTimer = null;
+        // Only show if still in online mode
+        if (gameMode === 'online') {
+          $connBannerText.textContent = '再接続中...';
+          $connBanner.style.display = 'block';
+        }
+      }, 1500);
+    }
+  }
+});
 
 // ===== Service Worker Registration =====
 if ('serviceWorker' in navigator) {
