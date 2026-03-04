@@ -281,6 +281,14 @@ body {
 .cpu .player-label { color: var(--cpu-color); }
 .player .player-label { color: var(--player-color); }
 
+.roll-counter {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
 .dice-row {
   display: flex;
   gap: 14px;
@@ -793,6 +801,7 @@ body {
 
 .float-text.plus { color: var(--green); }
 .float-text.minus { color: var(--red); }
+.float-text.miss { color: #aa6677; font-size: 1.5rem; animation: floatUp 0.8s ease-out forwards; }
 
 @keyframes floatUp {
   0% { opacity: 1; transform: translateY(0) scale(1); }
@@ -1611,6 +1620,7 @@ body {
   <div class="player-area player">
     <span class="player-label">あなた</span>
     <div class="dice-row" id="player-dice"></div>
+    <div class="roll-counter" id="roll-counter">振った回数: 0</div>
   </div>
 
   <!-- Freeze Penalty Message -->
@@ -1703,6 +1713,9 @@ let playerIsRolling = false;
 
 let cpuTimers = { roll: null, claim: null };
 let cpuHasRolled = false;
+
+// Roll counter
+let playerRollCount = 0;
 
 // Freeze penalty state (2-dice mode only)
 let freezeActive = false;
@@ -2152,6 +2165,16 @@ function clearLog() {
   $logArea.innerHTML = '';
 }
 
+function updateRollCounter() {
+  var el = document.getElementById('roll-counter');
+  if (el) el.textContent = '振った回数: ' + playerRollCount;
+}
+
+function resetRollCounter() {
+  playerRollCount = 0;
+  updateRollCounter();
+}
+
 // ===== Effects =====
 function showFlash(type) {
   const flash = document.createElement('div');
@@ -2199,13 +2222,42 @@ function startRollingAnimation(prefix, duration, callback) {
   }, duration);
 }
 
-// ===== Freeze Penalty (2-dice mode) =====
+// ===== Freeze Penalty =====
+var freezeTimerId = null;
+var freezeCountdownId = null;
+
 function startFreeze() {
   freezeActive = true;
   freezeRemainingRolls = FREEZE_ROLL_COUNT;
   $btnRoll.disabled = true;
   $btnClaim.disabled = true;
   updateFreezeDisplay();
+}
+
+function startTimedFreeze(seconds) {
+  freezeActive = true;
+  $btnRoll.disabled = true;
+  $btnClaim.disabled = true;
+  var remaining = seconds;
+  $freezeMsg.textContent = 'ペナルティ中... あと' + remaining + '秒';
+  $freezeMsg.style.display = 'block';
+
+  freezeCountdownId = setInterval(function() {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(freezeCountdownId);
+      freezeCountdownId = null;
+      endFreeze();
+    } else {
+      $freezeMsg.textContent = 'ペナルティ中... あと' + remaining + '秒';
+    }
+  }, 1000);
+
+  freezeTimerId = setTimeout(function() {
+    // Safety: endFreeze in case interval didn't clear
+    freezeTimerId = null;
+    if (freezeActive) endFreeze();
+  }, seconds * 1000 + 100);
 }
 
 function updateFreezeDisplay() {
@@ -2227,6 +2279,8 @@ function endFreeze() {
   freezeActive = false;
   freezeRemainingRolls = 0;
   $freezeMsg.style.display = 'none';
+  if (freezeTimerId) { clearTimeout(freezeTimerId); freezeTimerId = null; }
+  if (freezeCountdownId) { clearInterval(freezeCountdownId); freezeCountdownId = null; }
   if (gameActive) {
     $btnRoll.disabled = false;
     $btnClaim.disabled = true;
@@ -2237,11 +2291,16 @@ function clearFreeze() {
   freezeActive = false;
   freezeRemainingRolls = 0;
   $freezeMsg.style.display = 'none';
+  if (freezeTimerId) { clearTimeout(freezeTimerId); freezeTimerId = null; }
+  if (freezeCountdownId) { clearInterval(freezeCountdownId); freezeCountdownId = null; }
 }
 
 // ===== Player Actions =====
 function playerRoll() {
   if (!gameActive || playerIsRolling || freezeActive) return;
+
+  // Check if previous dice were zorome (miss detection - post-roll notification)
+  var wasMiss = playerHasRolled && isAllSame(playerDice);
 
   playerIsRolling = true;
   playerHasRolled = false;
@@ -2255,8 +2314,19 @@ function playerRoll() {
 
   startRollingAnimation('player', 250, function() {
     playerDice = rollNewDice();
+
+    // Show MISS effect after new dice are displayed
+    if (wasMiss) {
+      var playerArea = document.querySelector('.player-area.player');
+      if (playerArea) {
+        var rect = playerArea.getBoundingClientRect();
+        showFloatText('MISS!', 'miss', rect.left + rect.width / 2 - 30, rect.top - 10);
+      }
+    }
     playerHasRolled = true;
     playerIsRolling = false;
+    playerRollCount++;
+    updateRollCounter();
     renderAllDice();
     $btnRoll.disabled = false;
     $btnClaim.disabled = false;
@@ -2287,6 +2357,7 @@ function playerClaim() {
       var rect = $btnClaim.getBoundingClientRect();
       showFloatText('+1', 'plus', rect.left + rect.width / 2 - 15, rect.top - 30);
       setLog('駒を獲得！', 'success');
+      resetRollCounter();
       playerHasRolled = false;
       playerDice = makeEmptyDice();
       renderAllDice();
@@ -2305,12 +2376,14 @@ function playerClaim() {
     } else {
       showFloatText('Miss!', 'minus', rect.left + rect.width / 2 - 25, rect.top - 30);
       setLog('ぞろ目じゃない！', 'fail');
-      // 2-dice mode: freeze penalty when score is 0
+      // Freeze penalty when score is 0
+      playerHasRolled = false;
+      playerDice = makeEmptyDice();
+      renderAllDice();
       if (diceCount === 2) {
-        playerHasRolled = false;
-        playerDice = makeEmptyDice();
-        renderAllDice();
         startFreeze();
+      } else {
+        startTimedFreeze(3);
       }
     }
   }
@@ -2360,6 +2433,7 @@ function onlineClaim() {
         showFlash('success');
         showFloatText('+1', 'plus', rect.left + rect.width / 2 - 15, rect.top - 30);
         setLog('駒を獲得！', 'success');
+        resetRollCounter();
       } else {
         showFlash('fail');
         if (preScore > 0) {
@@ -2368,9 +2442,11 @@ function onlineClaim() {
         } else {
           showFloatText('Miss!', 'minus', rect.left + rect.width / 2 - 25, rect.top - 30);
           setLog('ぞろ目じゃない！', 'fail');
-          // 2-dice mode: freeze penalty when score is 0
+          // Freeze penalty when score is 0
           if (diceCount === 2) {
             startFreeze();
+          } else {
+            startTimedFreeze(3);
           }
         }
       }
@@ -2611,6 +2687,7 @@ function initGame(diff) {
   difficulty = diff;
   lastDifficulty = diff;
   clearFreeze();
+  resetRollCounter();
 
   // Build dice DOM for selected count
   buildDiceDOM();
@@ -2660,6 +2737,7 @@ function retryGame() {
   clearTimeout(cpuTimers.roll);
   clearTimeout(cpuTimers.claim);
   clearFreeze();
+  resetRollCounter();
 
   buildDiceDOM();
   playerDice = makeEmptyDice();
@@ -2700,6 +2778,7 @@ function initOnlineGame(dc) {
   gameMode = 'online';
   diceCount = dc;
   clearFreeze();
+  resetRollCounter();
 
   // Clean up lobby-phase listeners to prevent stale status listener
   // from re-triggering initOnlineGame during rematch
@@ -2917,24 +2996,30 @@ function setupOpponentDiceListener() {
 let rematchListener = null;
 
 function onlineRematch() {
-  if (!currentRoomCode || !myUid) return;
+  if (!currentRoomCode || !myUid || !opponentUid) return;
 
-  // Write my ready flag
-  fbDB.ref('rooms/' + currentRoomCode + '/rematch/' + myUid).set(true);
-
-  // Switch UI to waiting state
+  // Switch UI to waiting state first (before write to avoid flicker)
   $resultButtons.style.display = 'none';
   $rematchWait.style.display = 'block';
   $opponentLeftMsg.style.display = 'none';
 
-  // Listen for both players to be ready
+  // Listen for both players to be ready BEFORE writing own flag
+  // This ensures we don't miss any state transitions
   var rematchRef = fbDB.ref('rooms/' + currentRoomCode + '/rematch');
+  var myUidLocal = myUid;
+  var oppUidLocal = opponentUid;
+
+  if (rematchListener) {
+    rematchRef.off('value', rematchListener);
+    rematchListener = null;
+  }
+
   rematchListener = rematchRef.on('value', function(snap) {
     var data = snap.val();
     if (!data) return;
 
-    // Check if both players are ready
-    if (data[myUid] && data[opponentUid]) {
+    // Strictly check BOTH players have true flags
+    if (data[myUidLocal] === true && data[oppUidLocal] === true) {
       // Stop listening
       rematchRef.off('value', rematchListener);
       rematchListener = null;
@@ -2943,6 +3028,9 @@ function onlineRematch() {
       startRematchRound();
     }
   });
+
+  // Now write my ready flag
+  fbDB.ref('rooms/' + currentRoomCode + '/rematch/' + myUid).set(true);
   // In-game disconnect listener is still active from the game phase
 }
 
@@ -2965,7 +3053,15 @@ function cancelRematchWait() {
 
 function startRematchRound() {
   if (!currentRoomCode) return;
+
+  // Ensure rematch listener is cleaned up to prevent re-trigger
+  if (rematchListener) {
+    fbDB.ref('rooms/' + currentRoomCode + '/rematch').off('value', rematchListener);
+    rematchListener = null;
+  }
+
   clearFreeze();
+  resetRollCounter();
 
   // Clean up old game listeners to prevent double registration
   cleanupOnlineGameListeners();
