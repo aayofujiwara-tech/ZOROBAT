@@ -281,6 +281,14 @@ body {
 .cpu .player-label { color: var(--cpu-color); }
 .player .player-label { color: var(--player-color); }
 
+.roll-counter {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
 .dice-row {
   display: flex;
   gap: 14px;
@@ -704,6 +712,18 @@ body {
   40% { opacity: 1; }
 }
 
+.rematch-cancel-btn {
+  margin-top: 16px;
+  border: 2px solid var(--text-dim) !important;
+  color: var(--text-dim) !important;
+  font-size: 0.9rem;
+  padding: 8px 24px;
+}
+.rematch-cancel-btn:hover {
+  background: var(--text-dim) !important;
+  color: var(--bg-deep) !important;
+}
+
 .opponent-left {
   text-align: center;
   margin-top: 12px;
@@ -714,6 +734,41 @@ body {
   font-size: 1.1rem;
   font-weight: 700;
   margin-bottom: 16px;
+}
+
+/* ===== Connection Banner ===== */
+.connection-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 300;
+  text-align: center;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(255, 107, 53, 0.85);
+  backdrop-filter: blur(4px);
+  animation: bannerSlideIn 0.3s ease-out;
+  pointer-events: none;
+}
+
+@keyframes bannerSlideIn {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+
+#disconnected-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10, 10, 26, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 250;
 }
 
 /* ===== Effects ===== */
@@ -746,6 +801,7 @@ body {
 
 .float-text.plus { color: var(--green); }
 .float-text.minus { color: var(--red); }
+.float-text.miss { color: #aa6677; font-size: 1.5rem; animation: floatUp 0.8s ease-out forwards; }
 
 @keyframes floatUp {
   0% { opacity: 1; transform: translateY(0) scale(1); }
@@ -1365,6 +1421,18 @@ body {
 </head>
 <body>
 
+<!-- ===== Connection Banner ===== -->
+<div id="connection-banner" class="connection-banner" style="display:none;">
+  <span id="connection-banner-text">再接続中...</span>
+</div>
+
+<!-- ===== Disconnected Overlay ===== -->
+<div id="disconnected-overlay" style="display:none;">
+  <div class="result-text lose">接続が切れました</div>
+  <div class="result-sub" id="disconnected-sub">ルームが見つかりません</div>
+  <button class="result-btn" id="btn-disconnected-title" style="margin-top:16px;">タイトルへ</button>
+</div>
+
 <!-- ===== Title Screen (Mode Selection) ===== -->
 <div id="title-screen" class="screen active">
   <div class="title-logo">
@@ -1379,7 +1447,7 @@ body {
       <span class="mode-name">CPU対戦</span>
       <span class="mode-sub">ひとりで練習</span>
     </div>
-    <div class="mode-card online" onclick="showScreen('online-lobby-screen')">
+    <div class="mode-card online" onclick="goOnlineMode()">
       <span class="mode-icon">&#x1F310;</span>
       <span class="mode-name">オンライン対戦</span>
       <span class="mode-sub">友だちと対戦</span>
@@ -1448,7 +1516,7 @@ body {
       <span class="lobby-sub">コードを入力</span>
     </div>
   </div>
-  <button class="back-btn" onclick="showScreen('title-screen')">戻る</button>
+  <button class="back-btn" onclick="fbDB.goOffline(); showScreen('title-screen')">戻る</button>
 </div>
 
 <!-- ===== Create Room Screen ===== -->
@@ -1552,6 +1620,7 @@ body {
   <div class="player-area player">
     <span class="player-label">あなた</span>
     <div class="dice-row" id="player-dice"></div>
+    <div class="roll-counter" id="roll-counter">振った回数: 0</div>
   </div>
 
   <!-- Freeze Penalty Message -->
@@ -1581,6 +1650,7 @@ body {
   <div class="rematch-wait" id="rematch-wait" style="display:none;">
     <div class="rematch-wait-text">相手を待っています...</div>
     <div class="rematch-wait-dots"><span>.</span><span>.</span><span>.</span></div>
+    <button class="result-btn rematch-cancel-btn" id="btn-rematch-cancel">キャンセル</button>
   </div>
   <div class="opponent-left" id="opponent-left-msg" style="display:none;">
     <div class="opponent-left-text">相手が退出しました</div>
@@ -1644,6 +1714,9 @@ let playerIsRolling = false;
 let cpuTimers = { roll: null, claim: null };
 let cpuHasRolled = false;
 
+// Roll counter
+let playerRollCount = 0;
+
 // Freeze penalty state (2-dice mode only)
 let freezeActive = false;
 let freezeRemainingRolls = 0;
@@ -1679,6 +1752,33 @@ function showScreen(screenId) {
   if (joinInput && screenId !== 'join-room-screen') joinInput.value = '';
   // Toggle scroll lock for game screen (mobile)
   document.body.classList.toggle('game-active', screenId === 'game-screen');
+}
+
+function ensureOnline(callback) {
+  var user = fbAuth.currentUser;
+  if (user && myUid) {
+    fbDB.goOnline();
+    if (callback) callback();
+  } else {
+    // Re-authenticate then go online
+    fbAuth.signInAnonymously()
+      .then(function(result) {
+        myUid = result.user.uid;
+        console.log('[Firebase] 再認証成功 UID:', myUid);
+        fbDB.goOnline();
+        if (callback) callback();
+      })
+      .catch(function(err) {
+        console.error('[Firebase] 再認証失敗:', err);
+        alert('サーバーに接続できません。通信環境をご確認ください。');
+      });
+  }
+}
+
+function goOnlineMode() {
+  ensureOnline(function() {
+    showScreen('online-lobby-screen');
+  });
 }
 
 // ===== Online Room State =====
@@ -1781,6 +1881,7 @@ function createRoom() {
 
 function cancelCreateRoom() {
   if (currentRoomCode) {
+    fbDB.ref('rooms/' + currentRoomCode).onDisconnect().cancel();
     fbDB.ref('rooms/' + currentRoomCode).remove();
     cleanupRoom();
     currentRoomCode = null;
@@ -1863,8 +1964,10 @@ function joinRoom() {
 function leaveRoom() {
   if (currentRoomCode) {
     if (isHost) {
+      fbDB.ref('rooms/' + currentRoomCode).onDisconnect().cancel();
       fbDB.ref('rooms/' + currentRoomCode).remove();
     } else {
+      fbDB.ref('rooms/' + currentRoomCode + '/guestUid').onDisconnect().cancel();
       fbDB.ref('rooms/' + currentRoomCode + '/guestUid').remove();
       fbDB.ref('rooms/' + currentRoomCode + '/status').set('waiting');
     }
@@ -1933,6 +2036,7 @@ const $resultButtons = document.getElementById('result-buttons');
 const $rematchWait = document.getElementById('rematch-wait');
 const $opponentLeftMsg = document.getElementById('opponent-left-msg');
 const $btnLeftBackTitle = document.getElementById('btn-left-back-title');
+const $btnRematchCancel = document.getElementById('btn-rematch-cancel');
 
 const $playerScore = document.getElementById('player-score');
 const $cpuScore = document.getElementById('cpu-score');
@@ -2061,6 +2165,16 @@ function clearLog() {
   $logArea.innerHTML = '';
 }
 
+function updateRollCounter() {
+  var el = document.getElementById('roll-counter');
+  if (el) el.textContent = '振った回数: ' + playerRollCount;
+}
+
+function resetRollCounter() {
+  playerRollCount = 0;
+  updateRollCounter();
+}
+
 // ===== Effects =====
 function showFlash(type) {
   const flash = document.createElement('div');
@@ -2108,13 +2222,42 @@ function startRollingAnimation(prefix, duration, callback) {
   }, duration);
 }
 
-// ===== Freeze Penalty (2-dice mode) =====
+// ===== Freeze Penalty =====
+var freezeTimerId = null;
+var freezeCountdownId = null;
+
 function startFreeze() {
   freezeActive = true;
   freezeRemainingRolls = FREEZE_ROLL_COUNT;
   $btnRoll.disabled = true;
   $btnClaim.disabled = true;
   updateFreezeDisplay();
+}
+
+function startTimedFreeze(seconds) {
+  freezeActive = true;
+  $btnRoll.disabled = true;
+  $btnClaim.disabled = true;
+  var remaining = seconds;
+  $freezeMsg.textContent = 'ペナルティ中... あと' + remaining + '秒';
+  $freezeMsg.style.display = 'block';
+
+  freezeCountdownId = setInterval(function() {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(freezeCountdownId);
+      freezeCountdownId = null;
+      endFreeze();
+    } else {
+      $freezeMsg.textContent = 'ペナルティ中... あと' + remaining + '秒';
+    }
+  }, 1000);
+
+  freezeTimerId = setTimeout(function() {
+    // Safety: endFreeze in case interval didn't clear
+    freezeTimerId = null;
+    if (freezeActive) endFreeze();
+  }, seconds * 1000 + 100);
 }
 
 function updateFreezeDisplay() {
@@ -2136,6 +2279,8 @@ function endFreeze() {
   freezeActive = false;
   freezeRemainingRolls = 0;
   $freezeMsg.style.display = 'none';
+  if (freezeTimerId) { clearTimeout(freezeTimerId); freezeTimerId = null; }
+  if (freezeCountdownId) { clearInterval(freezeCountdownId); freezeCountdownId = null; }
   if (gameActive) {
     $btnRoll.disabled = false;
     $btnClaim.disabled = true;
@@ -2146,11 +2291,16 @@ function clearFreeze() {
   freezeActive = false;
   freezeRemainingRolls = 0;
   $freezeMsg.style.display = 'none';
+  if (freezeTimerId) { clearTimeout(freezeTimerId); freezeTimerId = null; }
+  if (freezeCountdownId) { clearInterval(freezeCountdownId); freezeCountdownId = null; }
 }
 
 // ===== Player Actions =====
 function playerRoll() {
   if (!gameActive || playerIsRolling || freezeActive) return;
+
+  // Check if previous dice were zorome (miss detection - post-roll notification)
+  var wasMiss = playerHasRolled && isAllSame(playerDice);
 
   playerIsRolling = true;
   playerHasRolled = false;
@@ -2164,8 +2314,19 @@ function playerRoll() {
 
   startRollingAnimation('player', 250, function() {
     playerDice = rollNewDice();
+
+    // Show MISS effect after new dice are displayed
+    if (wasMiss) {
+      var playerArea = document.querySelector('.player-area.player');
+      if (playerArea) {
+        var rect = playerArea.getBoundingClientRect();
+        showFloatText('MISS!', 'miss', rect.left + rect.width / 2 - 30, rect.top - 10);
+      }
+    }
     playerHasRolled = true;
     playerIsRolling = false;
+    playerRollCount++;
+    updateRollCounter();
     renderAllDice();
     $btnRoll.disabled = false;
     $btnClaim.disabled = false;
@@ -2196,6 +2357,7 @@ function playerClaim() {
       var rect = $btnClaim.getBoundingClientRect();
       showFloatText('+1', 'plus', rect.left + rect.width / 2 - 15, rect.top - 30);
       setLog('駒を獲得！', 'success');
+      resetRollCounter();
       playerHasRolled = false;
       playerDice = makeEmptyDice();
       renderAllDice();
@@ -2214,12 +2376,14 @@ function playerClaim() {
     } else {
       showFloatText('Miss!', 'minus', rect.left + rect.width / 2 - 25, rect.top - 30);
       setLog('ぞろ目じゃない！', 'fail');
-      // 2-dice mode: freeze penalty when score is 0
+      // Freeze penalty when score is 0
+      playerHasRolled = false;
+      playerDice = makeEmptyDice();
+      renderAllDice();
       if (diceCount === 2) {
-        playerHasRolled = false;
-        playerDice = makeEmptyDice();
-        renderAllDice();
         startFreeze();
+      } else {
+        startTimedFreeze(3);
       }
     }
   }
@@ -2269,6 +2433,7 @@ function onlineClaim() {
         showFlash('success');
         showFloatText('+1', 'plus', rect.left + rect.width / 2 - 15, rect.top - 30);
         setLog('駒を獲得！', 'success');
+        resetRollCounter();
       } else {
         showFlash('fail');
         if (preScore > 0) {
@@ -2277,9 +2442,11 @@ function onlineClaim() {
         } else {
           showFloatText('Miss!', 'minus', rect.left + rect.width / 2 - 25, rect.top - 30);
           setLog('ぞろ目じゃない！', 'fail');
-          // 2-dice mode: freeze penalty when score is 0
+          // Freeze penalty when score is 0
           if (diceCount === 2) {
             startFreeze();
+          } else {
+            startTimedFreeze(3);
           }
         }
       }
@@ -2520,6 +2687,7 @@ function initGame(diff) {
   difficulty = diff;
   lastDifficulty = diff;
   clearFreeze();
+  resetRollCounter();
 
   // Build dice DOM for selected count
   buildDiceDOM();
@@ -2569,6 +2737,7 @@ function retryGame() {
   clearTimeout(cpuTimers.roll);
   clearTimeout(cpuTimers.claim);
   clearFreeze();
+  resetRollCounter();
 
   buildDiceDOM();
   playerDice = makeEmptyDice();
@@ -2609,6 +2778,7 @@ function initOnlineGame(dc) {
   gameMode = 'online';
   diceCount = dc;
   clearFreeze();
+  resetRollCounter();
 
   // Clean up lobby-phase listeners to prevent stale status listener
   // from re-triggering initOnlineGame during rematch
@@ -2826,24 +2996,30 @@ function setupOpponentDiceListener() {
 let rematchListener = null;
 
 function onlineRematch() {
-  if (!currentRoomCode || !myUid) return;
+  if (!currentRoomCode || !myUid || !opponentUid) return;
 
-  // Write my ready flag
-  fbDB.ref('rooms/' + currentRoomCode + '/rematch/' + myUid).set(true);
-
-  // Switch UI to waiting state
+  // Switch UI to waiting state first (before write to avoid flicker)
   $resultButtons.style.display = 'none';
   $rematchWait.style.display = 'block';
   $opponentLeftMsg.style.display = 'none';
 
-  // Listen for both players to be ready
+  // Listen for both players to be ready BEFORE writing own flag
+  // This ensures we don't miss any state transitions
   var rematchRef = fbDB.ref('rooms/' + currentRoomCode + '/rematch');
+  var myUidLocal = myUid;
+  var oppUidLocal = opponentUid;
+
+  if (rematchListener) {
+    rematchRef.off('value', rematchListener);
+    rematchListener = null;
+  }
+
   rematchListener = rematchRef.on('value', function(snap) {
     var data = snap.val();
     if (!data) return;
 
-    // Check if both players are ready
-    if (data[myUid] && data[opponentUid]) {
+    // Strictly check BOTH players have true flags
+    if (data[myUidLocal] === true && data[oppUidLocal] === true) {
       // Stop listening
       rematchRef.off('value', rematchListener);
       rematchListener = null;
@@ -2852,12 +3028,40 @@ function onlineRematch() {
       startRematchRound();
     }
   });
+
+  // Now write my ready flag
+  fbDB.ref('rooms/' + currentRoomCode + '/rematch/' + myUid).set(true);
   // In-game disconnect listener is still active from the game phase
+}
+
+function cancelRematchWait() {
+  if (!currentRoomCode || !myUid) return;
+
+  // Remove my rematch flag
+  fbDB.ref('rooms/' + currentRoomCode + '/rematch/' + myUid).remove();
+
+  // Stop listening for rematch
+  if (rematchListener) {
+    fbDB.ref('rooms/' + currentRoomCode + '/rematch').off('value', rematchListener);
+    rematchListener = null;
+  }
+
+  // Show result buttons again
+  $rematchWait.style.display = 'none';
+  $resultButtons.style.display = 'flex';
 }
 
 function startRematchRound() {
   if (!currentRoomCode) return;
+
+  // Ensure rematch listener is cleaned up to prevent re-trigger
+  if (rematchListener) {
+    fbDB.ref('rooms/' + currentRoomCode + '/rematch').off('value', rematchListener);
+    rematchListener = null;
+  }
+
   clearFreeze();
+  resetRollCounter();
 
   // Clean up old game listeners to prevent double registration
   cleanupOnlineGameListeners();
@@ -2978,6 +3182,15 @@ function backToTitle() {
   $rematchWait.style.display = 'none';
   $opponentLeftMsg.style.display = 'none';
 
+  // Reset connection monitor state
+  wasConnected = false;
+  if (connBannerTimer) { clearTimeout(connBannerTimer); connBannerTimer = null; }
+  $connBanner.style.display = 'none';
+  $disconnectedOverlay.style.display = 'none';
+
+  // Disconnect Firebase when returning to title (saves connection slots)
+  fbDB.goOffline();
+
   $gameScreen.style.display = 'none';
   document.body.classList.remove('game-active');
   $resultOverlay.style.display = 'none';
@@ -3038,6 +3251,7 @@ $btnClaim.addEventListener('click', playerClaim);
 $btnRetry.addEventListener('click', retryGame);
 $btnBackTitle.addEventListener('click', backToTitle);
 $btnLeftBackTitle.addEventListener('click', backToTitle);
+$btnRematchCancel.addEventListener('click', cancelRematchWait);
 
 document.addEventListener('keydown', function(e) {
   // Allow Enter on result screen for retry (only when buttons are visible)
@@ -3097,10 +3311,84 @@ fbAuth.signInAnonymously()
   .then(function(result) {
     myUid = result.user.uid;
     console.log('[Firebase] 匿名認証成功 UID:', myUid);
+    // CPU対戦ではFirebase接続不要なので、認証完了後にオフラインにする
+    fbDB.goOffline();
   })
   .catch(function(error) {
     console.error('[Firebase] 匿名認証失敗:', error.code, error.message);
   });
+
+// ===== Connection Monitor =====
+var $connBanner = document.getElementById('connection-banner');
+var $connBannerText = document.getElementById('connection-banner-text');
+var $disconnectedOverlay = document.getElementById('disconnected-overlay');
+var $disconnectedSub = document.getElementById('disconnected-sub');
+document.getElementById('btn-disconnected-title').addEventListener('click', function() {
+  $disconnectedOverlay.style.display = 'none';
+  backToTitle();
+});
+
+var connectedRef = fbDB.ref('.info/connected');
+var wasConnected = false;
+var connBannerTimer = null;
+
+function resetOnDisconnect() {
+  if (!currentRoomCode) return;
+  if (isHost) {
+    fbDB.ref('rooms/' + currentRoomCode).onDisconnect().remove();
+  } else {
+    fbDB.ref('rooms/' + currentRoomCode + '/guestUid').onDisconnect().remove();
+  }
+}
+
+connectedRef.on('value', function(snap) {
+  // Skip when offline by design (CPU mode / title screen)
+  if (gameMode !== 'online') return;
+
+  var connected = snap.val() === true;
+
+  if (connected) {
+    // Connected (or reconnected)
+    if (connBannerTimer) { clearTimeout(connBannerTimer); connBannerTimer = null; }
+    $connBanner.style.display = 'none';
+
+    if (wasConnected) {
+      // This is a REconnection — verify room still exists and re-setup onDisconnect
+      console.log('[Firebase] 再接続検知');
+      resetOnDisconnect();
+
+      if (currentRoomCode) {
+        fbDB.ref('rooms/' + currentRoomCode).once('value').then(function(roomSnap) {
+          if (!roomSnap.exists()) {
+            // Room is gone
+            console.log('[Firebase] ルーム消失を検知');
+            $disconnectedSub.textContent = 'ルームが見つかりません';
+            $disconnectedOverlay.style.display = 'flex';
+          }
+          // If room exists, Firebase auto-resync handles everything
+        });
+      }
+    }
+
+    wasConnected = true;
+  } else {
+    // Disconnected
+    if (!wasConnected) return; // Initial false from goOnline, ignore
+    console.log('[Firebase] 接続切断検知');
+
+    // Show banner after a short delay (avoid flicker on instant reconnect)
+    if (!connBannerTimer) {
+      connBannerTimer = setTimeout(function() {
+        connBannerTimer = null;
+        // Only show if still in online mode
+        if (gameMode === 'online') {
+          $connBannerText.textContent = '再接続中...';
+          $connBanner.style.display = 'block';
+        }
+      }, 1500);
+    }
+  }
+});
 
 // ===== Service Worker Registration =====
 if ('serviceWorker' in navigator) {
