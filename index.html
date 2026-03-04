@@ -1717,8 +1717,9 @@ let cpuHasRolled = false;
 // Roll counter
 let playerRollCount = 0;
 
-// Freeze penalty state (2-dice mode only)
+// Freeze penalty state
 let freezeActive = false;
+let isTimedFreeze = false;   // true = time-based (3-dice), false = roll-count (2-dice)
 let freezeRemainingRolls = 0;
 const FREEZE_ROLL_COUNT = 3;
 let cpuIsRolling = false;
@@ -2228,6 +2229,7 @@ var freezeCountdownId = null;
 
 function startFreeze() {
   freezeActive = true;
+  isTimedFreeze = false;
   freezeRemainingRolls = FREEZE_ROLL_COUNT;
   $btnRoll.disabled = true;
   $btnClaim.disabled = true;
@@ -2236,6 +2238,8 @@ function startFreeze() {
 
 function startTimedFreeze(seconds) {
   freezeActive = true;
+  isTimedFreeze = true;
+  freezeRemainingRolls = 0;
   $btnRoll.disabled = true;
   $btnClaim.disabled = true;
   var remaining = seconds;
@@ -2267,8 +2271,9 @@ function updateFreezeDisplay() {
 
 function decrementFreeze() {
   // Only applies to roll-count based freeze (2-dice mode)
-  // Timed freeze (3-dice mode) uses its own timer, skip here
-  if (!freezeActive || freezeRemainingRolls <= 0) return;
+  // Timed freeze (3-dice mode) uses its own timer, completely skip here
+  if (!freezeActive || isTimedFreeze) return;
+  if (freezeRemainingRolls <= 0) return;
   freezeRemainingRolls--;
   if (freezeRemainingRolls <= 0) {
     endFreeze();
@@ -2279,6 +2284,7 @@ function decrementFreeze() {
 
 function endFreeze() {
   freezeActive = false;
+  isTimedFreeze = false;
   freezeRemainingRolls = 0;
   $freezeMsg.style.display = 'none';
   if (freezeTimerId) { clearTimeout(freezeTimerId); freezeTimerId = null; }
@@ -2291,6 +2297,7 @@ function endFreeze() {
 
 function clearFreeze() {
   freezeActive = false;
+  isTimedFreeze = false;
   freezeRemainingRolls = 0;
   $freezeMsg.style.display = 'none';
   if (freezeTimerId) { clearTimeout(freezeTimerId); freezeTimerId = null; }
