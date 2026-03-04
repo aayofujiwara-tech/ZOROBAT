@@ -2266,7 +2266,9 @@ function updateFreezeDisplay() {
 }
 
 function decrementFreeze() {
-  if (!freezeActive) return;
+  // Only applies to roll-count based freeze (2-dice mode)
+  // Timed freeze (3-dice mode) uses its own timer, skip here
+  if (!freezeActive || freezeRemainingRolls <= 0) return;
   freezeRemainingRolls--;
   if (freezeRemainingRolls <= 0) {
     endFreeze();
